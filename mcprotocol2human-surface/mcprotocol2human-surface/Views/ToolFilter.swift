@@ -35,17 +35,18 @@ nonisolated struct ToolFilter: Equatable, Sendable {
     }
 }
 
-/// The filter field with its two toggles, above the tool list.
+/// The filter field, and under it two pop-up menus whose titles are the current settings in words:
+/// where to look, and whether to show the tools that match or those that do not.
 struct FilterBar: View {
     @Binding var filter: ToolFilter
     var focused: FocusState<Bool>.Binding
 
     var body: some View {
-        HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
                 Image(systemName: "line.3.horizontal.decrease")
                     .foregroundStyle(.secondary)
-                TextField("Filter tools", text: $filter.text)
+                TextField(filter.namesOnly ? "Filter names" : "Filter names and descriptions", text: $filter.text)
                     .textFieldStyle(.plain)
                     .focused(focused)
                     .onExitCommand { filter.text = "" }
@@ -61,18 +62,30 @@ struct FilterBar: View {
             .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .textBackgroundColor)))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.secondary.opacity(0.3)))
 
-            Toggle(isOn: $filter.namesOnly) {
-                Text("Aa").font(.callout.weight(.semibold))
+            Grid(alignment: .leading, horizontalSpacing: 6, verticalSpacing: 4) {
+                GridRow {
+                    Text("In")
+                        .gridColumnAlignment(.trailing)
+                    Picker("In", selection: $filter.namesOnly) {
+                        Text("Names + descriptions").tag(false)
+                        Text("Names only").tag(true)
+                    }
+                    .help("Where the filter text is looked for. Titles count as names.")
+                }
+                GridRow {
+                    Text("Show")
+                    Picker("Show", selection: $filter.inverted) {
+                        Text("Matching").tag(false)
+                        Text("Not matching").tag(true)
+                    }
+                    .help("Show the tools that contain the filter text, or those that do not")
+                }
             }
-            .help(filter.namesOnly ? "Matching tool names and titles only" : "Match tool names and titles only")
-            .accessibilityLabel("Names only")
-            Toggle(isOn: $filter.inverted) {
-                Image(systemName: "notequal")
-            }
-            .help(filter.inverted ? "Showing the tools that do not match" : "Show the tools that do not match")
-            .accessibilityLabel("Show non-matching")
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .font(.callout)
+            .foregroundStyle(.secondary)
         }
-        .toggleStyle(.button)
         .controlSize(.small)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
