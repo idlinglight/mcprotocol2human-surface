@@ -82,25 +82,3 @@ struct FilterBar: View {
         .padding(.vertical, 6)
     }
 }
-
-/// A button whose symbol is the current setting; the tooltip says the setting and what a click does.
-private struct StateButton: View {
-    var symbol: String
-    var state: String
-    var action: String
-    var perform: () -> Void
-
-    var body: some View {
-        Button(action: perform) {
-            Image(systemName: symbol)
-                .font(.body)
-                // One box for every symbol, so both buttons and both states have the same size.
-                .frame(width: 18, height: 18)
-        }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
-        .help("\(state). Click to \(action).")
-        .accessibilityLabel(state)
-        .accessibilityHint("Click to \(action).")
-    }
-}

@@ -129,6 +129,8 @@ struct ServerColumn: View {
     @Bindable var model: AppModel
     var name: String
     @FocusState private var filterFocused: Bool
+    /// A viewing preference, so it is remembered; the filter is not.
+    @AppStorage("showsToolDescriptions") private var showsDescriptions = true
 
     var body: some View {
         let run = model.run(for: name)
@@ -163,7 +165,7 @@ struct ServerColumn: View {
                     }
                 }
                 if let result = run?.result {
-                    Section(filter.header(shown: shown.count, total: result.tools.count)) {
+                    Section {
                         if !result.toolsAdvertised {
                             Text("The server does not advertise the tools capability.")
                                 .foregroundStyle(.secondary)
@@ -174,8 +176,20 @@ struct ServerColumn: View {
                                 .selectionDisabled()
                         }
                         ForEach(shown) { tool in
-                            ToolRow(tool: tool)
+                            ToolRow(tool: tool, showsDescription: showsDescriptions)
                                 .tag(ServerPage.tool(tool.position))
+                        }
+                    } header: {
+                        HStack {
+                            Text(filter.header(shown: shown.count, total: result.tools.count))
+                            Spacer()
+                            StateButton(
+                                symbol: showsDescriptions ? "eye" : "eye.slash",
+                                state: showsDescriptions ? "Showing the first line of each description" : "Showing names only",
+                                action: showsDescriptions ? "show names only" : "show the first line of each description"
+                            ) {
+                                showsDescriptions.toggle()
+                            }
                         }
                     }
                 }
@@ -212,6 +226,8 @@ struct ServerColumn: View {
 
 struct ToolRow: View {
     var tool: ToolInfo
+    /// The first line of the description under the name; the full description is in the tooltip either way.
+    var showsDescription = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -228,7 +244,7 @@ struct ToolRow: View {
                 Spacer(minLength: 0)
                 HintIcons(hints: tool.hints)
             }
-            if let summary = tool.summary {
+            if showsDescription, let summary = tool.summary {
                 Text(summary)
                     .font(.callout)
                     .foregroundStyle(.secondary)
