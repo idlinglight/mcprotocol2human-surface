@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Stamped by Scripts/build.sh through build settings; empty in builds made by Xcode. -->
+	<key>M2HCommit</key>
+	<string>$(M2H_COMMIT)</string>
+	<key>M2HBranch</key>
+	<string>$(M2H_BRANCH)</string>
+	<key>M2HBuildDate</key>
+	<string>$(M2H_BUILD_DATE)</string>
+	<key>M2HDirty</key>
+	<string>$(M2H_DIRTY)</string>
+</dict>
+</plist>
