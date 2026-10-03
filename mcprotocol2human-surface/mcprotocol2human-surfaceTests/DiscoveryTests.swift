@@ -263,6 +263,49 @@ struct DiscoveryTests {
         #expect(found.observations.first?.hasPrefix("server/discover failed:") == true)
     }
 
+    /// A result is not enough for modern: some servers answer unknown methods with a result shaped like a
+    /// failed tool call, and would then reject tools/list for coming before initialize.
+    @Test(arguments: [
+        ["content": [["type": "text", "text": "Unknown request: server/discover"]], "isError": true],
+        [:],
+        ["supportedVersions": "2026-07-28", "capabilities": .null],
+    ] as [JSONValue])
+    func probeResultThatIsNotADiscoverResultFallsBack(_ probeResult: JSONValue) async throws {
+        let transport = FakeTransport { request in
+            switch request["method"]?.stringValue {
+            case "server/discover": .messages([result(for: request, probeResult)])
+            case "initialize": .messages([result(for: request, legacyInitializeResult)])
+            default: .messages([result(for: request, ["tools": [["name": "t"]]])])
+            }
+        }
+        let found = try await discover(transport)
+        #expect(found.era == .legacy)
+        #expect(found.tools.map(\.name) == ["t"])
+        #expect(transport.sentMethods == ["server/discover", "initialize", "notifications/initialized", "tools/list"])
+        let remark = found.observations.first ?? ""
+        #expect(remark.hasPrefix("server/discover answered with a result that is not a DiscoverResult"))
+        #expect(remark.contains("“Unknown request: server/discover”") == (probeResult["isError"] != nil))
+        #expect(remark.contains("; supportedVersions is string, capabilities is null)") == (probeResult["capabilities"] != nil))
+    }
+
+    @Test(arguments: [
+        ["supportedVersions": ["2026-07-28"]],
+        ["capabilities": ["tools": [:]]],
+    ] as [JSONValue])
+    func discoverResultMissingOneRequiredMemberStaysModern(_ probeResult: JSONValue) async throws {
+        let transport = FakeTransport { request in
+            switch request["method"]?.stringValue {
+            case "server/discover": .messages([result(for: request, probeResult)])
+            default: .messages([result(for: request, ["resultType": "complete", "tools": [["name": "t"]]])])
+            }
+        }
+        let found = try await discover(transport)
+        #expect(found.era == .modern)
+        #expect(!transport.sentMethods.contains("initialize"))
+        let missing = probeResult["capabilities"] == nil ? "capabilities object" : "supportedVersions list"
+        #expect(found.observations.contains("The result has no \(missing), which is required."))
+    }
+
     @Test func unreachableServerEndsDiscovery() async throws {
         let transport = FakeTransport { _ in .failure(TransportError.connectionFailed("refused")) }
         await #expect(throws: TransportError.self) { try await discover(transport) }
