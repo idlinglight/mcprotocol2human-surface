@@ -12,3 +12,9 @@
   lives in the GitHub repository `modelcontextprotocol/modelcontextprotocol`.
 - The repository may become public. Keep personal context, real server output and secrets out of it:
   examples and test fixtures use made-up servers and tools.
+- Debug builds read `M2H_*` environment variables to drive the app from a shell and write a snapshot
+  (PNG plus a text dump of model state and views); see `Support/DebugAids.swift`. Point them at a scratch
+  servers file with `M2H_SERVERS_FILE`, never at the real one.
+- xcodebuild's console output leaves out Swift Testing failure messages. Run tests with
+  `-resultBundlePath build/tests.xcresult` and read them with
+  `xcrun xcresulttool get test-results tests --path build/tests.xcresult`.

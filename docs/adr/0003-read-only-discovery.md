@@ -12,9 +12,9 @@ themselves") need only the list methods.
 
 - The app never sends `tools/call`, nor any other method that acts on the server's data. It sends only
   what discovery needs: the protocol handshake or discovery request, and list methods.
-- Discovery is one-shot. Refresh opens a connection (for stdio, starts the server process), runs
-  discovery, records the result as a snapshot with its time, and closes the connection again. Nothing
-  stays connected between refreshes.
+- Discovery is one-shot. Selecting a server runs it the first time; after that, Refresh does. A run opens
+  a connection (for stdio, starts the server process), runs discovery, records the result with its time
+  and traffic, and closes the connection again. Nothing stays connected between runs.
 
 ## Consequences
 
