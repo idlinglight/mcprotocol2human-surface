@@ -279,19 +279,30 @@ struct HintIcons: View {
     var hints: [HintInfo]
 
     var body: some View {
-        let explicit = Dictionary(uniqueKeysWithValues: hints.filter(\.isExplicit).map { ($0.key, $0.value) })
         HStack(spacing: 3) {
-            if explicit["readOnlyHint"] == true {
-                Image(systemName: "eyeglasses")
-                    .help("Read-only: the server says this tool does not modify its environment (readOnlyHint).")
-            } else if explicit["destructiveHint"] == true {
-                Image(systemName: "flame")
-                    .help("Destructive: the server says this tool may make destructive changes (destructiveHint).")
+            if let icon = Self.icon(for: hints) {
+                Image(systemName: icon.symbol)
+                    .help(icon.help)
             }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
         .contentShape(Rectangle())
+    }
+
+    /// The one icon a row shows, if any: eyeglasses for an explicit read-only hint, otherwise a flame for an
+    /// explicit destructive one. The detail view's hint pills show the same icon on the same hint.
+    static func icon(for hints: [HintInfo]) -> (key: String, symbol: String, help: String)? {
+        let explicit = Dictionary(uniqueKeysWithValues: hints.filter(\.isExplicit).map { ($0.key, $0.value) })
+        if explicit["readOnlyHint"] == true {
+            return ("readOnlyHint", "eyeglasses",
+                    "Read-only: the server says this tool does not modify its environment (readOnlyHint).")
+        }
+        if explicit["destructiveHint"] == true {
+            return ("destructiveHint", "flame",
+                    "Destructive: the server says this tool may make destructive changes (destructiveHint).")
+        }
+        return nil
     }
 }
 

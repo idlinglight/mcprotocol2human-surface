@@ -23,14 +23,28 @@ struct ToolDetail: View {
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 6) {
+                    if let description = tool.description, !description.isEmpty {
+                        let title = HStack(spacing: 6) {
+                            Text("Description")
+                                .font(.headline)
+                                .fixedSize()
+                            CopyButton(text: description, help: "Copy the description exactly as the server sent it")
+                        }
+                        // The display switch beside the title when there is room, else on a line of its own.
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 6) {
+                                title
+                                Spacer(minLength: 12)
+                                DescriptionDisplayPicker()
+                            }
+                            VStack(alignment: .leading, spacing: 6) {
+                                title
+                                DescriptionDisplayPicker()
+                            }
+                        }
+                    } else {
                         Text("Description")
                             .font(.headline)
-                        if let description = tool.description, !description.isEmpty {
-                            CopyButton(text: description, help: "Copy the description exactly as the server sent it")
-                            Spacer()
-                            DescriptionDisplayPicker()
-                        }
                     }
                     if let description = tool.description, !description.isEmpty {
                         DescriptionText(text: description)
@@ -114,9 +128,16 @@ struct HintBadges: View {
     var hints: [HintInfo]
 
     var body: some View {
+        let icon = HintIcons.icon(for: hints)
         FlowLayout(spacing: 6) {
             ForEach(hints) { hint in
-                Text("\(hint.label): \(hint.value ? "yes" : "no")")
+                // The icon the tool's row shows appears on the hint it stands for, to explain it.
+                HStack(spacing: 4) {
+                    if let icon, icon.key == hint.key {
+                        Image(systemName: icon.symbol)
+                    }
+                    Text("\(hint.label): \(hint.value ? "yes" : "no")")
+                }
                     .font(.caption)
                     .lineLimit(1)
                     .padding(.horizontal, 6)
