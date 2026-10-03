@@ -15,6 +15,9 @@
 - Debug builds read `M2H_*` environment variables to drive the app from a shell and write a snapshot
   (PNG plus a text dump of model state and views); see `Support/DebugAids.swift`. Point them at a scratch
   servers file with `M2H_SERVERS_FILE`, never at the real one.
+- Debug and installed builds share one bundle id, so they share preferences. To try a preference in a
+  debug run without changing the user's, pass it as a launch argument (`-showsToolDescriptions NO`):
+  it overrides for that launch and is never written.
 - xcodebuild's console output leaves out Swift Testing failure messages. Run tests with
   `-resultBundlePath build/tests.xcresult` and read them with
   `xcrun xcresulttool get test-results tests --path build/tests.xcresult`.
