@@ -129,6 +129,8 @@ struct ServerColumn: View {
     @Bindable var model: AppModel
     var name: String
     @FocusState private var filterFocused: Bool
+    /// A viewing preference, so it is remembered; the filter is not.
+    @AppStorage("showsToolDescriptions", store: Preferences.store) private var showsDescriptions = true
 
     var body: some View {
         let run = model.run(for: name)
@@ -163,7 +165,7 @@ struct ServerColumn: View {
                     }
                 }
                 if let result = run?.result {
-                    Section(filter.header(shown: shown.count, total: result.tools.count)) {
+                    Section {
                         if !result.toolsAdvertised {
                             Text("The server does not advertise the tools capability.")
                                 .foregroundStyle(.secondary)
@@ -173,9 +175,26 @@ struct ServerColumn: View {
                                 .foregroundStyle(.secondary)
                                 .selectionDisabled()
                         }
-                        ForEach(shown) { tool in
-                            ToolRow(tool: tool)
+                        // The mode is part of each row's identity: the list keeps row heights for rows it
+                        // already has, so switching modes must replace the rows rather than update them.
+                        ForEach(shown, id: \.position) { tool in
+                            ToolRow(tool: tool, showsDescription: showsDescriptions)
                                 .tag(ServerPage.tool(tool.position))
+                                .id(RowIdentity(position: tool.position, showsDescription: showsDescriptions))
+                        }
+                    } header: {
+                        // Right after the count, not at the trailing edge, where it would line up with the
+                        // filter buttons and look like one of them.
+                        HStack(spacing: 6) {
+                            Text(filter.header(shown: shown.count, total: result.tools.count))
+                            StateButton(
+                                symbol: showsDescriptions ? "eye" : "eye.slash",
+                                state: showsDescriptions ? "Showing the first line of each description" : "Showing names only",
+                                action: showsDescriptions ? "show names only" : "show the first line of each description"
+                            ) {
+                                showsDescriptions.toggle()
+                            }
+                            Spacer(minLength: 0)
                         }
                     }
                 }
@@ -210,8 +229,16 @@ struct ServerColumn: View {
     }
 }
 
+/// A tool row's identity in the list: its tool, and whether it shows the description line.
+private struct RowIdentity: Hashable {
+    var position: Int
+    var showsDescription: Bool
+}
+
 struct ToolRow: View {
     var tool: ToolInfo
+    /// The first line of the description under the name; the full description is in the tooltip either way.
+    var showsDescription = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -228,7 +255,7 @@ struct ToolRow: View {
                 Spacer(minLength: 0)
                 HintIcons(hints: tool.hints)
             }
-            if let summary = tool.summary {
+            if showsDescription, let summary = tool.summary {
                 Text(summary)
                     .font(.callout)
                     .foregroundStyle(.secondary)

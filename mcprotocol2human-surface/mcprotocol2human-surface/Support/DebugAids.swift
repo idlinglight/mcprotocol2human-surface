@@ -9,6 +9,10 @@ import ScreenCaptureKit
 /// - `M2H_SELECT=<server name>`: select that server at launch, which starts its discovery.
 /// - `M2H_SELECT_PAGE=overview|traffic|<tool name>`: once the run has finished, show that page.
 /// - `M2H_WINDOW_SIZE=<width>x<height>`: resize the main window at launch.
+/// - `M2H_DEFAULTS_SUITE=<name>`: keep preferences in a scratch store instead of the installed app's;
+///   `M2H_DEFAULTS='{"key": value}'` seeds it. See `Preferences`.
+/// - `M2H_FLIP_DESCRIPTIONS=1` (with a scratch store): before the snapshot, switch the tool rows between
+///   names only and names with description, as the eye button does, to see the list after the switch.
 /// - `M2H_FILTER=<text>`: set the tool filter's text, taken as it is. `M2H_FILTER_NAMES_ONLY=1` and
 ///   `M2H_FILTER_INVERT=1` switch its two settings.
 /// - `M2H_SNAPSHOT=/path/to/file.png`: once the selected server's run has finished (or after the delay),
@@ -83,6 +87,15 @@ enum DebugAids {
             }
             if environment["M2H_SNAPSHOT_SETTINGS"] == "1" {
                 SettingsOpener.request()
+            }
+            if environment["M2H_FLIP_DESCRIPTIONS"] == "1" {
+                if Preferences.store === UserDefaults.standard {
+                    Log.app.error("M2H_FLIP_DESCRIPTIONS needs M2H_DEFAULTS_SUITE; not touching the real preferences")
+                } else {
+                    try? await Task.sleep(for: .seconds(1))
+                    let key = "showsToolDescriptions"
+                    Preferences.store.set(!(Preferences.store.object(forKey: key) as? Bool ?? true), forKey: key)
+                }
             }
             // Give the views a moment to lay out what just arrived.
             try? await Task.sleep(for: .seconds(1))

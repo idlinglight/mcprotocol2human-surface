@@ -14,6 +14,9 @@ Personal tool, built locally, not distributed.
 - A filter above the tool list (⌘F, Escape clears it). The two buttons beside it show the setting in
   effect and switch it on click: a page searches names and descriptions, a crossed-out page names only
   (titles count as names); an equals sign shows the matching tools, a not-equals sign the others.
+- The eye button next to the tools heading switches the rows between name plus first description line
+  (eye) and names only (crossed-out eye), for an overview with less noise. It is remembered between
+  launches; the full description shows on hover either way.
 - For each tool: name and title, the four behaviour hints (set by the server, or the specification's
   default), the full description, parameters with type, required flag, default, allowed values and
   constraints (nested objects can be opened), the output schema, and the raw JSON.
