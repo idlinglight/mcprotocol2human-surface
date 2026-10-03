@@ -165,7 +165,11 @@ nonisolated enum Discovery {
     }
 
     private static func notDiscoverResultRemark(_ result: JSONValue) -> String {
-        var remark = "server/discover answered with a result that is not a DiscoverResult (it has neither supportedVersions nor capabilities); treated as a legacy server."
+        // Present with the wrong type is a different fix for the server's author than absent, so say which.
+        let wrongTypes = ["supportedVersions", "capabilities"].compactMap { key in result[key].map { "\(key) is \($0.kindName)" } }
+        var remark = "server/discover answered with a result that is not a DiscoverResult (it has neither a supportedVersions array nor a capabilities object"
+        remark += wrongTypes.isEmpty ? "" : "; \(wrongTypes.joined(separator: ", "))"
+        remark += "); treated as a legacy server."
         // Some servers answer unknown methods as if a tool call had failed, instead of with a JSON-RPC error.
         if result["isError"]?.boolValue == true {
             let text = result["content"]?.arrayValue?.compactMap { $0["text"]?.stringValue }.joined(separator: " ") ?? ""

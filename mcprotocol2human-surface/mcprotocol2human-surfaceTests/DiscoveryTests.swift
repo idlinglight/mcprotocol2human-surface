@@ -268,6 +268,7 @@ struct DiscoveryTests {
     @Test(arguments: [
         ["content": [["type": "text", "text": "Unknown request: server/discover"]], "isError": true],
         [:],
+        ["supportedVersions": "2026-07-28", "capabilities": .null],
     ] as [JSONValue])
     func probeResultThatIsNotADiscoverResultFallsBack(_ probeResult: JSONValue) async throws {
         let transport = FakeTransport { request in
@@ -284,6 +285,7 @@ struct DiscoveryTests {
         let remark = found.observations.first ?? ""
         #expect(remark.hasPrefix("server/discover answered with a result that is not a DiscoverResult"))
         #expect(remark.contains("“Unknown request: server/discover”") == (probeResult["isError"] != nil))
+        #expect(remark.contains("; supportedVersions is string, capabilities is null)") == (probeResult["capabilities"] != nil))
     }
 
     @Test(arguments: [
