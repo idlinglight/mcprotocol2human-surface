@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Testing
 @testable import mcprotocol2human_surface
 
@@ -81,6 +82,21 @@ struct ServerStoreTests {
         #expect(ServerEditor.arguments(from: "a b") == ["a b"])
         #expect(ServerEditor.arguments(from: "run\r\n--flag\r\n") == ["run", "--flag"], "pasted Windows line ends")
         #expect(ServerEditor.arguments(from: "a\rb") == ["a", "b"])
+    }
+
+    /// A text field of a removed row may still use its binding once; that used to index past the end.
+    @Test func rowFieldsOutliveTheirRow() {
+        final class Box: @unchecked Sendable { var pairs = [KeyValue(key: "A", value: "1"), KeyValue(key: "B", value: "2")] }
+        let box = Box()
+        let editor = KeyValueEditor(pairs: Binding(get: { box.pairs }, set: { box.pairs = $0 }), keyPrompt: "", valuePrompt: "")
+        let last = box.pairs[1].id
+        let value = editor.field(\.value, of: last)
+        value.wrappedValue = "two"
+        #expect(box.pairs[1].value == "two")
+        box.pairs.removeAll { $0.id == last }
+        #expect(value.wrappedValue == "")
+        value.wrappedValue = "late"
+        #expect(box.pairs.map(\.value) == ["1"])
     }
 
     @Test func refusesDuplicateNames() throws {

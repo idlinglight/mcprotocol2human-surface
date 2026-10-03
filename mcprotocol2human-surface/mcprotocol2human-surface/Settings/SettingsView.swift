@@ -238,12 +238,12 @@ struct KeyValueEditor: View {
     var valuePrompt: String
 
     var body: some View {
-        ForEach($pairs) { $pair in
+        ForEach(pairs) { pair in
             HStack {
-                TextField(keyPrompt, text: $pair.key, prompt: Text(keyPrompt))
+                TextField(keyPrompt, text: field(\.key, of: pair.id), prompt: Text(keyPrompt))
                     .labelsHidden()
                     .frame(maxWidth: 200)
-                TextField(valuePrompt, text: $pair.value, prompt: Text(valuePrompt))
+                TextField(valuePrompt, text: field(\.value, of: pair.id), prompt: Text(valuePrompt))
                     .labelsHidden()
                 Button("Remove", systemImage: "minus.circle") {
                     pairs.removeAll { $0.id == pair.id }
@@ -257,5 +257,17 @@ struct KeyValueEditor: View {
             pairs.append(KeyValue(key: "", value: ""))
         }
         .buttonStyle(.borderless)
+    }
+
+    /// A row's field, found by the row's id rather than its position. A text field can still read or write
+    /// its binding while its row is being removed; with `ForEach($pairs)` that is a position past the end
+    /// and crashes. Here a removed row reads as empty and drops the write.
+    func field(_ keyPath: WritableKeyPath<KeyValue, String>, of id: KeyValue.ID) -> Binding<String> {
+        Binding(
+            get: { pairs.first { $0.id == id }?[keyPath: keyPath] ?? "" },
+            set: { text in
+                guard let index = pairs.firstIndex(where: { $0.id == id }) else { return }
+                pairs[index][keyPath: keyPath] = text
+            })
     }
 }
