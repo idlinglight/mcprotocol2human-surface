@@ -75,8 +75,15 @@ actor MCPConnection {
         self.traffic = traffic
     }
 
+    /// Starts the transport, unless the connection was closed (cancelled) before it got here.
     func start() async throws {
+        if isClosed { throw ConnectionError.closed(closedReason ?? nil) }
         try await transport.start()
+        // Closed while starting: the earlier close found nothing to stop, so stop what just started.
+        if isClosed {
+            await transport.close()
+            throw ConnectionError.closed(closedReason ?? nil)
+        }
         let events = transport.events
         eventsTask = Task {
             for await event in events {

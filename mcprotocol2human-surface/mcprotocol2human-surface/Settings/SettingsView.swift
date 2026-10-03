@@ -207,7 +207,8 @@ struct ServerEditor: View {
     /// One argument per line. Empty lines in between are empty arguments; trailing ones are not arguments,
     /// so a newline typed at the end does not add one.
     static func arguments(from text: String) -> [String] {
-        var lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        // By `isNewline`, not "\n": a pasted "\r\n" is one Character and would not split.
+        var lines = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).map(String.init)
         while lines.last?.isEmpty == true { lines.removeLast() }
         return lines
     }

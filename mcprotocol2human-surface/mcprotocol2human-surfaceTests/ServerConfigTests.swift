@@ -79,6 +79,8 @@ struct ServerStoreTests {
         #expect(ServerEditor.arguments(from: "run\n\n--flag\n\n") == ["run", "", "--flag"])
         #expect(ServerEditor.arguments(from: "") == [])
         #expect(ServerEditor.arguments(from: "a b") == ["a b"])
+        #expect(ServerEditor.arguments(from: "run\r\n--flag\r\n") == ["run", "--flag"], "pasted Windows line ends")
+        #expect(ServerEditor.arguments(from: "a\rb") == ["a", "b"])
     }
 
     @Test func refusesDuplicateNames() throws {

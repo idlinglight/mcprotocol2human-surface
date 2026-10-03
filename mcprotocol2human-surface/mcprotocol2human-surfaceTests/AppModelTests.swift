@@ -71,6 +71,15 @@ struct AppModelTests {
 }
 
 struct CancellationTests {
+    @Test func connectionClosedBeforeStartDoesNotLaunchTheServer() async throws {
+        let traffic = TrafficLog()
+        let transport = StdioTransport(command: "/bin/cat", arguments: [], environment: [:], traffic: traffic)
+        let connection = MCPConnection(transport: transport, traffic: traffic)
+        await connection.cancel()
+        await #expect(throws: ConnectionError.self) { try await connection.start() }
+        #expect(!traffic.entries.contains { $0.text.hasPrefix("Starting") })
+    }
+
     @Test func cancellingARunEndsItPromptly() async throws {
         let script = FileManager.default.temporaryDirectory.appending(path: "m2h-silent-\(UUID().uuidString).zsh")
         try Data("#!/bin/zsh\ncat > /dev/null\n".utf8).write(to: script)
