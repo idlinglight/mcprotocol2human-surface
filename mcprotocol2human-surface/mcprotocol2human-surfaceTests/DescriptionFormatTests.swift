@@ -24,8 +24,8 @@ struct DescriptionFormatTests {
         """
         #expect(DescriptionFormat.blocks(text) == [
             .paragraph("Modes:"),
-            .listItem(marker: "•", text: "`fast`: skips the cache entirely.", level: 1),
-            .listItem(marker: "•", text: "`slow`: reads through.", level: 1),
+            .listItem(marker: "-", text: "`fast`: skips the cache entirely.", level: 1),
+            .listItem(marker: "-", text: "`slow`: reads through.", level: 1),
             .listItem(marker: "1.", text: "first", level: 0),
             .listItem(marker: "2)", text: "second", level: 0),
         ])
@@ -33,7 +33,7 @@ struct DescriptionFormatTests {
 
     @Test func unindentedLineAfterAListStartsAParagraph() {
         #expect(DescriptionFormat.blocks("- one\nReturns nothing.") == [
-            .listItem(marker: "•", text: "one", level: 0),
+            .listItem(marker: "-", text: "one", level: 0),
             .paragraph("Returns nothing."),
         ])
     }
@@ -66,8 +66,16 @@ struct DescriptionFormatTests {
     }
 
     @Test func plainTextForTooltips() {
-        let text = "Do the thing\nquickly.\n\n- a\n- b\n\nEnd."
-        #expect(DescriptionFormat.plainText(text) == "Do the thing quickly.\n\n• a\n• b\n\nEnd.")
+        let text = "Do the thing\nquickly.\n\n- a\n* b\n\nEnd."
+        #expect(DescriptionFormat.plainText(text) == "Do the thing quickly.\n\n- a\n* b\n\nEnd.", "markers as typed")
+    }
+
+    @Test func codeSpansKeepTheirSpacesTogether() {
+        let nbsp = "\u{00A0}"
+        #expect(DescriptionFormat.keepingCodeSpansTogether("use `a b c` or `x`") == "use `a\(nbsp)b\(nbsp)c` or `x`")
+        #expect(DescriptionFormat.keepingCodeSpansTogether("``a ` b`` then") == "``a\(nbsp)`\(nbsp)b`` then", "runs pair by length")
+        #expect(DescriptionFormat.keepingCodeSpansTogether("an `unclosed span") == "an `unclosed span")
+        #expect(DescriptionFormat.blocks("call\n`do it`") == [.paragraph("call `do\(nbsp)it`")])
     }
 
     @Test func inlineMarkdownMarksCodeAndSurvivesOddText() {

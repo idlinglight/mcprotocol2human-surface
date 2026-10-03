@@ -256,7 +256,7 @@ struct ToolRow: View {
                 HintIcons(hints: tool.hints)
             }
             if showsDescription, let summary = tool.summary {
-                Text(DescriptionText.inline(summary))
+                Text(verbatim: summary)
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)

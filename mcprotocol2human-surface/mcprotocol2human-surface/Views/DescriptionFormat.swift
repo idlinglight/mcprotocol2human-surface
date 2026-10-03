@@ -1,16 +1,16 @@
 import Foundation
 
-/// Turns description text (tool and parameter descriptions, server instructions) into blocks a person can
-/// read: the usual reading of Markdown-ish text, not the exact text the server sent.
+/// Reads the whitespace of agent-facing text (tool and parameter descriptions, server instructions) for
+/// display to people (ADR-0008). Only whitespace is interpreted; every other character stays as it is.
 ///
 /// Servers often send docstrings hard-wrapped to a line length. Within a paragraph those line breaks are
-/// joined; blank lines separate paragraphs; list items keep their own lines, with indented continuation
-/// lines joined to them; fenced code blocks stay as they are. Inline Markdown (`code`, emphasis, links) is
-/// left in the text for the view to render.
+/// joined; blank lines separate paragraphs; list items keep their own lines and markers, with indented
+/// continuation lines joined to them; fenced code blocks stay as they are. Spaces inside a pair of
+/// backticks become no-break spaces, so a code span cannot be split across display lines.
 nonisolated enum DescriptionFormat {
     enum Block: Equatable, Sendable {
         case paragraph(String)
-        /// `marker` is `•` for bullets, or the number with its `.` or `)`; `level` counts indentation steps.
+        /// `marker` as written (`-`, `*`, `1.`, …); `level` counts indentation steps.
         case listItem(marker: String, text: String, level: Int)
         case code(String)
     }
@@ -23,11 +23,11 @@ nonisolated enum DescriptionFormat {
 
         func flush() {
             if !paragraph.isEmpty {
-                blocks.append(.paragraph(joinWrapped(paragraph)))
+                blocks.append(.paragraph(keepingCodeSpansTogether(joinWrapped(paragraph))))
                 paragraph = []
             }
             if let current = item {
-                blocks.append(.listItem(marker: current.marker, text: joinWrapped(current.text), level: current.level))
+                blocks.append(.listItem(marker: current.marker, text: keepingCodeSpansTogether(joinWrapped(current.text)), level: current.level))
                 item = nil
             }
         }
@@ -128,10 +128,38 @@ nonisolated enum DescriptionFormat {
         return result
     }
 
+    /// Spaces inside backtick code spans become no-break spaces. A span opens with a run of backticks and
+    /// closes with the next run of the same length, as in CommonMark; an unclosed run stays as it is.
+    static func keepingCodeSpansTogether(_ text: String) -> String {
+        guard text.contains("`") else { return text }
+        var characters = Array(text)
+        var runs: [(start: Int, length: Int)] = []
+        var index = 0
+        while index < characters.count {
+            guard characters[index] == "`" else { index += 1; continue }
+            let start = index
+            while index < characters.count, characters[index] == "`" { index += 1 }
+            runs.append((start, index - start))
+        }
+        var runIndex = 0
+        while runIndex < runs.count {
+            let opening = runs[runIndex]
+            guard let closingIndex = runs[(runIndex + 1)...].firstIndex(where: { $0.length == opening.length }) else {
+                runIndex += 1
+                continue
+            }
+            for position in (opening.start + opening.length)..<runs[closingIndex].start where characters[position] == " " {
+                characters[position] = "\u{00A0}"
+            }
+            runIndex = closingIndex + 1
+        }
+        return String(characters)
+    }
+
     /// `- `, `* `, `+ `, `• `, `1. ` or `1) ` at the start of a line.
     private static func listMarker(_ trimmed: String) -> (display: String, length: Int)? {
         for bullet in ["- ", "* ", "+ ", "• "] where trimmed.hasPrefix(bullet) {
-            return ("•", bullet.count)
+            return (String(bullet.dropLast()), bullet.count)
         }
         let digits = trimmed.prefix { $0.isASCII && $0.isNumber }
         guard !digits.isEmpty, digits.count <= 3 else { return nil }

@@ -27,7 +27,9 @@ struct ToolDetail: View {
                         Text("Description")
                             .font(.headline)
                         if let description = tool.description, !description.isEmpty {
-                            CopyRawButton(text: description, help: "Copy the description exactly as the server sent it")
+                            CopyButton(text: description, help: "Copy the description exactly as the server sent it")
+                            Spacer()
+                            DescriptionDisplayPicker()
                         }
                     }
                     if let description = tool.description, !description.isEmpty {
@@ -222,22 +224,9 @@ struct JSONText: View {
 
     var body: some View {
         let text = value.prettyText
-        VStack(alignment: .trailing, spacing: 4) {
-            Button("Copy", systemImage: "doc.on.doc") {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(text, forType: .string)
-            }
-            .buttonStyle(.borderless)
-            .font(.caption)
-            ScrollView(.horizontal) {
-                Text(text)
-                    .font(.callout.monospaced())
-                    .textSelection(.enabled)
-                    .fixedSize()
-                    .padding(8)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.06)))
+        VStack(alignment: .trailing, spacing: 2) {
+            CopyButton(text: text, help: "Copy this JSON")
+            MonospaceBlock(text: text)
         }
     }
 }
