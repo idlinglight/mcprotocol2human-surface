@@ -23,6 +23,8 @@ Personal tool, built locally, not distributed.
   kept as a unit and wrapped, for text that breaks lines by meaning), and "Original lines" (monospace,
   the server's own line breaks). None of these is what the model is given; they are on trial
   (ADR-0008). The copy button next to "Description" copies the text exactly as sent.
+- Rows mark the tools a server explicitly declares read-only (eyeglasses) or destructive (flame);
+  hovering an icon explains it, hovering anywhere else on the row shows the description.
 - For each tool: name and title, the four behaviour hints (set by the server, or the specification's
   default), the full description, parameters with type, required flag, default, allowed values and
   constraints (nested objects can be opened), the output schema, and the raw JSON.

@@ -241,33 +241,40 @@ struct ToolRow: View {
     var showsDescription = true
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 6) {
-                Text(tool.displayName)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-                if tool.displayName != tool.name, !tool.name.isEmpty {
-                    Text(tool.name)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(tool.displayName)
+                        .fontWeight(.medium)
                         .lineLimit(1)
+                    if tool.displayName != tool.name, !tool.name.isEmpty {
+                        Text(tool.name)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
-                Spacer(minLength: 0)
-                HintIcons(hints: tool.hints)
+                if showsDescription, let summary = tool.summary {
+                    Text(verbatim: summary)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
             }
-            if showsDescription, let summary = tool.summary {
-                Text(verbatim: summary)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
+            // The whole width up to the icons shows the description, empty space included.
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .help(tool.description.map(DescriptionFormat.plainText) ?? "No description")
+
+            // Outside the area above, so hovering an icon explains the icon instead.
+            HintIcons(hints: tool.hints)
         }
         .padding(.vertical, 2)
-        .help(tool.description.map(DescriptionFormat.plainText) ?? "No description")
     }
 }
 
-/// Small icons for the hints a server set explicitly: read-only, or destructive.
+/// Small icons for the hints a server set explicitly: read-only, or destructive. Each explains itself on
+/// hover.
 struct HintIcons: View {
     var hints: [HintInfo]
 
@@ -275,13 +282,16 @@ struct HintIcons: View {
         let explicit = Dictionary(uniqueKeysWithValues: hints.filter(\.isExplicit).map { ($0.key, $0.value) })
         HStack(spacing: 3) {
             if explicit["readOnlyHint"] == true {
-                Image(systemName: "eye").help("Read-only")
+                Image(systemName: "eyeglasses")
+                    .help("Read-only: the server says this tool does not modify its environment (readOnlyHint).")
             } else if explicit["destructiveHint"] == true {
-                Image(systemName: "exclamationmark.triangle").help("Destructive")
+                Image(systemName: "flame")
+                    .help("Destructive: the server says this tool may make destructive changes (destructiveHint).")
             }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
+        .contentShape(Rectangle())
     }
 }
 
