@@ -67,6 +67,10 @@ struct AppModelTests {
         let run = try #require(model.run(for: "slow"))
         #expect(run.result?.tools.map(\.name) == ["one"])
         #expect(!run.traffic.contains { $0.text == "Cancelled." }, "the stored run is the second one")
+
+        #expect(!model.canFilterTools, "no server selected")
+        model.selectedServer = "slow"
+        #expect(model.canFilterTools)
     }
 }
 

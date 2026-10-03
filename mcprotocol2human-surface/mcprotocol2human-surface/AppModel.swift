@@ -38,11 +38,16 @@ final class AppModel {
     var selectedServer: String? {
         didSet {
             guard selectedServer != oldValue else { return }
-            selectedPage = nil
+            // The overview is what a newly selected server shows, so the list says so too.
+            selectedPage = selectedServer == nil ? nil : .overview
             if let selectedServer { refreshIfNeeded(selectedServer) }
         }
     }
     var selectedPage: ServerPage?
+    /// Applies to whichever server is selected, so it stays put while switching between them.
+    var toolFilter = ToolFilter()
+    /// Bumped by ⌘F; the tool list moves focus to its filter field when it changes.
+    var filterFocusRequests = 0
     /// The latest finished run per server name.
     private(set) var runs: [String: DiscoveryRun] = [:]
     private(set) var running: Set<String> = []
@@ -60,6 +65,12 @@ final class AppModel {
     }
 
     func run(for name: String) -> DiscoveryRun? { runs[name] }
+
+    /// Whether the selected server has tools to filter; the filter field is shown only then.
+    var canFilterTools: Bool {
+        guard let selectedServer, let tools = runs[selectedServer]?.result?.tools else { return false }
+        return !tools.isEmpty
+    }
 
     func isRunning(_ name: String) -> Bool { running.contains(name) }
 

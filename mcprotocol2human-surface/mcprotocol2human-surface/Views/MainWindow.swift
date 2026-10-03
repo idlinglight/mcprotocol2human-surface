@@ -128,45 +128,66 @@ struct ServerRow: View {
 struct ServerColumn: View {
     @Bindable var model: AppModel
     var name: String
-    @State private var search = ""
+    @FocusState private var filterFocused: Bool
 
     var body: some View {
         let run = model.run(for: name)
-        List(selection: $model.selectedPage) {
-            Section {
+        let filter = model.toolFilter
+        let shown = run?.result.map { filter.apply($0.tools) } ?? []
+        VStack(spacing: 0) {
+            // The pages that are not tools stay at the top, above the filter that does not apply to them.
+            // A list of their own, sharing the selection, so they look and select like the tool rows.
+            List(selection: $model.selectedPage) {
                 Label("Overview", systemImage: "info.circle")
                     .tag(ServerPage.overview)
                 Label("Traffic", systemImage: "arrow.left.arrow.right")
                     .badge(run?.traffic.count ?? 0)
                     .tag(ServerPage.traffic)
             }
-            if let failure = run?.failure {
-                Section {
-                    Label(failure.message, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                        .textSelection(.enabled)
-                        .selectionDisabled()
-                }
+            .scrollDisabled(true)
+            .frame(height: Self.pagesHeight)
+
+            if model.canFilterTools {
+                Divider()
+                FilterBar(filter: $model.toolFilter, focused: $filterFocused)
             }
-            if let result = run?.result {
-                Section(toolsHeader(result)) {
-                    if !result.toolsAdvertised {
-                        Text("The server does not advertise the tools capability.")
-                            .foregroundStyle(.secondary)
+            Divider()
+
+            List(selection: $model.selectedPage) {
+                if let failure = run?.failure {
+                    Section {
+                        Label(failure.message, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                            .textSelection(.enabled)
                             .selectionDisabled()
                     }
-                    ForEach(filtered(result.tools)) { tool in
-                        ToolRow(tool: tool)
-                            .tag(ServerPage.tool(tool.position))
+                }
+                if let result = run?.result {
+                    Section(filter.header(shown: shown.count, total: result.tools.count)) {
+                        if !result.toolsAdvertised {
+                            Text("The server does not advertise the tools capability.")
+                                .foregroundStyle(.secondary)
+                                .selectionDisabled()
+                        } else if shown.isEmpty, filter.isActive {
+                            Text(filter.inverted ? "Every tool matches." : "No tool matches.")
+                                .foregroundStyle(.secondary)
+                                .selectionDisabled()
+                        }
+                        ForEach(shown) { tool in
+                            ToolRow(tool: tool)
+                                .tag(ServerPage.tool(tool.position))
+                        }
                     }
+                }
+            }
+            .overlay {
+                if run == nil, model.isRunning(name) {
+                    ProgressView("Connecting…")
                 }
             }
         }
-        .searchable(text: $search, placement: .toolbar, prompt: "Filter tools")
-        .overlay {
-            if run == nil, model.isRunning(name) {
-                ProgressView("Connecting…")
-            }
+        .onChange(of: model.filterFocusRequests) {
+            filterFocused = true
         }
         .safeAreaInset(edge: .bottom) {
             if let run, let current = model.selectedConfig, !Self.sameSettings(run.config, current) {
@@ -180,20 +201,8 @@ struct ServerColumn: View {
         }
     }
 
-    private func toolsHeader(_ result: DiscoveryResult) -> String {
-        let shown = filtered(result.tools).count
-        return shown == result.tools.count ? "Tools (\(shown))" : "Tools (\(shown) of \(result.tools.count))"
-    }
-
-    private func filtered(_ tools: [ToolInfo]) -> [ToolInfo] {
-        let query = search.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return tools }
-        return tools.filter {
-            $0.name.localizedCaseInsensitiveContains(query)
-                || $0.displayName.localizedCaseInsensitiveContains(query)
-                || ($0.description?.localizedCaseInsensitiveContains(query) ?? false)
-        }
-    }
+    /// Two rows of the list style, plus its insets.
+    static let pagesHeight: CGFloat = 72
 
     /// Equal apart from the identity SwiftUI uses.
     static func sameSettings(_ a: ServerConfig, _ b: ServerConfig) -> Bool {

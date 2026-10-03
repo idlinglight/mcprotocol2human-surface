@@ -11,6 +11,9 @@ Personal tool, built locally, not distributed.
 - Keeps a list of servers, stdio or Streamable HTTP, edited in Settings (⌘,).
 - Selecting a server connects to it, finds out which protocol revision it speaks, lists its tools and
   disconnects again. Refresh (⌘R) does it again; Refresh All (⇧⌘R) does it for every server.
+- A filter above the tool list (⌘F, Escape clears it). The two buttons beside it show the setting in
+  effect and switch it on click: a page searches names and descriptions, a crossed-out page names only
+  (titles count as names); an equals sign shows the matching tools, a not-equals sign the others.
 - For each tool: name and title, the four behaviour hints (set by the server, or the specification's
   default), the full description, parameters with type, required flag, default, allowed values and
   constraints (nested objects can be opened), the output schema, and the raw JSON.
@@ -81,3 +84,5 @@ Recorded as ADRs in [docs/adr](docs/adr):
 - More checks on tool definitions, in the spirit of the notes that exist now.
 - An estimate of how much context the tool descriptions take up.
 - Prompts and resources, listed like tools.
+- Keyboard navigation across the server pages (Overview, Traffic) and the tool list, which are separate
+  lists for now.

@@ -9,10 +9,13 @@ import ScreenCaptureKit
 /// - `M2H_SELECT=<server name>`: select that server at launch, which starts its discovery.
 /// - `M2H_SELECT_PAGE=overview|traffic|<tool name>`: once the run has finished, show that page.
 /// - `M2H_WINDOW_SIZE=<width>x<height>`: resize the main window at launch.
+/// - `M2H_FILTER=<text>`: set the tool filter's text, taken as it is. `M2H_FILTER_NAMES_ONLY=1` and
+///   `M2H_FILTER_INVERT=1` switch its two settings.
 /// - `M2H_SNAPSHOT=/path/to/file.png`: once the selected server's run has finished (or after the delay),
 ///   write an image of the main window there and a text dump next to it (`file.txt`) with the model's
 ///   state and the view hierarchy. `M2H_SNAPSHOT_DELAY=<seconds>` is the longest wait (default 30);
 ///   `M2H_SNAPSHOT_QUIT=1` quits afterwards; `M2H_SNAPSHOT_SETTINGS=1` captures the Settings window instead.
+///   The app activates itself first, taking the focus from whatever app has it.
 ///   The image comes from ScreenCaptureKit when the app may already record the screen (it never asks),
 ///   otherwise from drawing the window's views, which can miss materials such as the sidebar's.
 ///
@@ -30,6 +33,12 @@ enum DebugAids {
                 try? await Task.sleep(for: .milliseconds(200))
                 NSApp.windows.first { $0.isVisible }?.setContentSize(NSSize(width: size[0], height: size[1]))
             }
+        }
+        if let text = environment["M2H_FILTER"] {
+            model.toolFilter = ToolFilter(
+                text: text,
+                namesOnly: environment["M2H_FILTER_NAMES_ONLY"] == "1",
+                inverted: environment["M2H_FILTER_INVERT"] == "1")
         }
         if let server = environment["M2H_SELECT"] {
             Task {
@@ -67,6 +76,8 @@ enum DebugAids {
         guard let path = environment["M2H_SNAPSHOT"] else { return }
         Task {
             try? await Task.sleep(for: .milliseconds(300))
+            // Snapshot an active window: inactive ones grey out accents, such as a toggle that is on.
+            NSApp.activate()
             if let server = environment["M2H_SELECT"] {
                 await waitForRun(of: server, in: model)
             }
