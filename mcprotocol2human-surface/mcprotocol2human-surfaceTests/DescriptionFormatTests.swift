@@ -38,14 +38,34 @@ struct DescriptionFormatTests {
         ])
     }
 
-    @Test func fencedCodeStaysAsItIs() {
+    @Test func fencedCodeStaysAsItIsFencesIncluded() {
         let text = "Example:\n```json\n{\"a\": 1,\n  \"b\": 2}\n```\nDone."
         #expect(DescriptionFormat.blocks(text) == [
             .paragraph("Example:"),
-            .code("{\"a\": 1,\n  \"b\": 2}"),
+            .code("```json\n{\"a\": 1,\n  \"b\": 2}\n```"),
             .paragraph("Done."),
         ])
-        #expect(DescriptionFormat.blocks("```\nnever closed") == [.code("never closed")])
+        #expect(DescriptionFormat.blocks("```\nnever closed") == [.code("```\nnever closed")])
+    }
+
+    @Test func keptLinesStayUnits() {
+        let text = "First sentence.\nSecond one,\nwith a clause.\n\n- item\n  continued"
+        #expect(DescriptionFormat.blocks(text, lines: .kept) == [
+            .paragraph("First sentence.\nSecond one,\nwith a clause."),
+            .listItem(marker: "-", text: "item\ncontinued", level: 0),
+        ])
+    }
+
+    @Test func keptLinesJoinWhereACodeSpanWouldBeSplit() {
+        let nbsp = "\u{00A0}"
+        #expect(DescriptionFormat.blocks("Pass `a\nb` here.\nNext line.", lines: .kept)
+            == [.paragraph("Pass `a\(nbsp)b` here.\nNext line.")])
+        // A lone backtick that nothing closes does not swallow the following lines.
+        #expect(DescriptionFormat.blocks("Type a ` to quote.\nNext line.", lines: .kept)
+            == [.paragraph("Type a ` to quote.\nNext line.")])
+        // Runs pair by length: a single backtick inside a double-backtick span does not close it.
+        #expect(DescriptionFormat.blocks("Use ``x `\ny`` now.", lines: .kept)
+            == [.paragraph("Use ``x\(nbsp)`\(nbsp)y`` now.")])
     }
 
     @Test func dedentsLikeADocstringAndHandlesWindowsLineEnds() {

@@ -8,16 +8,19 @@ Tool descriptions, parameter descriptions and server instructions are written fo
 often use Markdown conventions (lists, `code`, emphasis) to carry meaning to the model by shared
 convention, and often arrive hard-wrapped, as docstrings do.
 
-A model ingests tokens. A person sees through active perception: photon-induced signals, processed in
-feedback loops that also steer the eyes' small and large movements (fixations, saccades), from which
-glyphs are perceived, but also shapes: how long lines are, what aligns, whether a pair of delimiters
-visibly closes around what it encloses. No display can show a person what the model is presented with:
-fully rendered Markdown, monospace with the original line breaks, and everything in between are all
-interpretations for that kind of perception. Rendering the Markdown for a person to consume is also
-beside the point: the aim is to look at what the model is given, not to consume it.
+A model ingests tokens. People take text in through their senses, and every way of doing so is an
+interpretation in its own right: a screen reader speaking it, a braille display, or, the case this
+app's displays are built for, visual perception. Visual perception is active: photon-induced signals,
+processed in feedback loops that also steer the eyes' small and large movements (fixations, saccades),
+from which glyphs are perceived, but also shapes: how long lines are, what aligns, whether a pair of
+delimiters visibly closes around what it encloses. No presentation, visual or otherwise, can give a
+person what the model is presented with: fully rendered Markdown, monospace with the original line
+breaks, and everything in between are all interpretations for visual perception. Rendering the
+Markdown for a person to consume is also beside the point: the aim is to look at what the model is
+given, not to consume it.
 
-Many difficulties people have with such text arise at the level of shape, interwoven with reading the
-glyphs, and are invisible in the character sequence:
+Many difficulties in reading such text visually arise at the level of shape, interwoven with reading
+the glyphs, and are invisible in the character sequence:
 
 - A hard-wrapped line ending after a few words looks like a paragraph's end.
 - A pair of backticks encloses the right words as a sequence of symbols, but once wrapped onto lines,
@@ -30,7 +33,7 @@ settle.
 
 ## Decision
 
-- No display is presented as what the model sees. Displays are named for what they do ("reflowed",
+- No display is presented as what the model is given. Displays are named for what they do ("reflowed",
   "original line breaks", …), never "raw" or "as sent".
 - The exact text can be copied, so it can be examined with other tools: an editor, a diff, a tokenizer.
 - The default display avoids the pitfalls above where it can, and others as they are found. Other

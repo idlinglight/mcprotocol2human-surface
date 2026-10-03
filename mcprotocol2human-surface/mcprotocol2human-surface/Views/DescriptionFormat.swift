@@ -3,19 +3,36 @@ import Foundation
 /// Reads the whitespace of agent-facing text (tool and parameter descriptions, server instructions) for
 /// display to people (ADR-0008). Only whitespace is interpreted; every other character stays as it is.
 ///
-/// Servers often send docstrings hard-wrapped to a line length. Within a paragraph those line breaks are
-/// joined; blank lines separate paragraphs; list items keep their own lines and markers, with indented
-/// continuation lines joined to them; fenced code blocks stay as they are. Spaces inside a pair of
-/// backticks become no-break spaces, so a code span cannot be split across display lines.
+/// Blank lines separate paragraphs; list items keep their own lines and markers, with indented
+/// continuation lines belonging to them; fenced code blocks, fences included, stay as they are. Spaces
+/// inside a pair of backticks become no-break spaces, so a code span cannot be split across display lines.
+///
+/// Line breaks within a paragraph or list item are handled one of two ways (`Lines`): joined, for text
+/// hard-wrapped to a line length, or kept, for text that breaks lines by meaning (semantic line breaks).
 nonisolated enum DescriptionFormat {
     enum Block: Equatable, Sendable {
+        /// With `.kept` lines, the text's lines are separated by `\n`.
         case paragraph(String)
         /// `marker` as written (`-`, `*`, `1.`, …); `level` counts indentation steps.
         case listItem(marker: String, text: String, level: Int)
         case code(String)
     }
 
-    static func blocks(_ text: String) -> [Block] {
+    enum Lines: Sendable {
+        /// Line breaks within a paragraph are soft: lines are joined with spaces.
+        case joined
+        /// Each line stays a unit. A line ending inside a backtick code span is joined with the next line
+        /// when that line closes it, so the pair is not split.
+        case kept
+    }
+
+    static func blocks(_ text: String, lines lineHandling: Lines = .joined) -> [Block] {
+        func join(_ lines: [String]) -> String {
+            switch lineHandling {
+            case .joined: joinWrapped(lines)
+            case .kept: keepingLines(lines)
+            }
+        }
         var blocks: [Block] = []
         var paragraph: [String] = []
         var item: (marker: String, text: [String], level: Int)?
@@ -23,22 +40,22 @@ nonisolated enum DescriptionFormat {
 
         func flush() {
             if !paragraph.isEmpty {
-                blocks.append(.paragraph(keepingCodeSpansTogether(joinWrapped(paragraph))))
+                blocks.append(.paragraph(keepingCodeSpansTogether(join(paragraph))))
                 paragraph = []
             }
             if let current = item {
-                blocks.append(.listItem(marker: current.marker, text: keepingCodeSpansTogether(joinWrapped(current.text)), level: current.level))
+                blocks.append(.listItem(marker: current.marker, text: keepingCodeSpansTogether(join(current.text)), level: current.level))
                 item = nil
             }
         }
 
         for line in dedented(lines(of: text)) {
             if var lines = code {
+                lines.append(line)
                 if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
                     blocks.append(.code(lines.joined(separator: "\n")))
                     code = nil
                 } else {
-                    lines.append(line)
                     code = lines
                 }
                 continue
@@ -49,7 +66,7 @@ nonisolated enum DescriptionFormat {
                 flush()
             } else if trimmed.hasPrefix("```") {
                 flush()
-                code = []
+                code = [line]
             } else if let marker = listMarker(trimmed) {
                 flush()
                 let content = String(trimmed.dropFirst(marker.length)).trimmingCharacters(in: .whitespaces)
@@ -115,6 +132,39 @@ nonisolated enum DescriptionFormat {
         let common = rest.map { line in line.prefix { $0 == " " }.count }.min() ?? 0
         guard common > 0 else { return lines }
         return [lines[0]] + lines.dropFirst().map { $0.count >= common ? String($0.dropFirst(common)) : $0.trimmingCharacters(in: .whitespaces) }
+    }
+
+    /// Keeps each line a unit, separated by `\n`, except that a line ending inside a code span is joined
+    /// with the next line when that one closes the span.
+    private static func keepingLines(_ lines: [String]) -> String {
+        var units: [String] = []
+        for line in lines.map({ $0.trimmingCharacters(in: .whitespaces) }) {
+            if let last = units.last, let open = unclosedCodeRun(last), line.contains(String(repeating: "`", count: open)) {
+                units[units.count - 1] = last + " " + line
+            } else {
+                units.append(line)
+            }
+        }
+        return units.joined(separator: "\n")
+    }
+
+    /// The length of the last backtick run that no later run of the same length closes, if any.
+    private static func unclosedCodeRun(_ text: String) -> Int? {
+        var open: [Int] = []
+        let characters = Array(text)
+        var index = 0
+        while index < characters.count {
+            guard characters[index] == "`" else { index += 1; continue }
+            let start = index
+            while index < characters.count, characters[index] == "`" { index += 1 }
+            let length = index - start
+            if let match = open.lastIndex(of: length) {
+                open.removeSubrange(match...)
+            } else {
+                open.append(length)
+            }
+        }
+        return open.last
     }
 
     /// Joins hard-wrapped lines with spaces. A line ending in two spaces asks for a line break, as in Markdown.

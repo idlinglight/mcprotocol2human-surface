@@ -17,11 +17,12 @@ Personal tool, built locally, not distributed.
 - The eye button next to the tools heading switches the rows between name plus first description line
   (eye) and names only (crossed-out eye), for an overview with less noise. It is remembered between
   launches; the full description shows on hover either way.
-- Descriptions (of tools and parameters, and server instructions) can be displayed three ways, switched
+- Descriptions (of tools and parameters, and server instructions) can be displayed four ways, switched
   in a tool's Description header: "Reflowed" (the default: hard-wrapped lines joined, lists kept, every
-  other character as sent), "Markdown" (inline Markdown rendered), and "Original lines" (monospace, the
-  server's own line breaks). None of these is what the model sees; they are on trial (ADR-0008). The copy
-  button next to "Description" copies the text exactly as sent.
+  other character as sent), "Markdown" (inline Markdown rendered), "Wrapped lines" (each original line
+  kept as a unit and wrapped, for text that breaks lines by meaning), and "Original lines" (monospace,
+  the server's own line breaks). None of these is what the model is given; they are on trial
+  (ADR-0008). The copy button next to "Description" copies the text exactly as sent.
 - For each tool: name and title, the four behaviour hints (set by the server, or the specification's
   default), the full description, parameters with type, required flag, default, allowed values and
   constraints (nested objects can be opened), the output schema, and the raw JSON.

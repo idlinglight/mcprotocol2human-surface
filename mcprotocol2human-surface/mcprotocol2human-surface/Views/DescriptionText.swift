@@ -8,6 +8,9 @@ enum DescriptionDisplay: String, CaseIterable, Identifiable {
     case reflowed
     /// As `reflowed`, with inline Markdown rendered: `code` in monospace, emphasis, links.
     case markdown
+    /// Each original line kept as a unit and wrapped to the width, with a small gap between lines and a
+    /// larger one between paragraphs: for text that breaks lines by meaning (semantic line breaks).
+    case wrappedLines
     /// The original line breaks, in monospace, without wrapping.
     case originalLines
 
@@ -17,6 +20,7 @@ enum DescriptionDisplay: String, CaseIterable, Identifiable {
         switch self {
         case .reflowed: "Reflowed"
         case .markdown: "Markdown"
+        case .wrappedLines: "Wrapped lines"
         case .originalLines: "Original lines"
         }
     }
@@ -34,18 +38,19 @@ struct DescriptionText: View {
         switch display {
         case .originalLines:
             MonospaceBlock(text: text)
-        case .reflowed, .markdown:
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(Array(DescriptionFormat.blocks(text).enumerated()), id: \.offset) { _, block in
+        case .reflowed, .markdown, .wrappedLines:
+            let keepsLines = display == .wrappedLines
+            VStack(alignment: .leading, spacing: keepsLines ? 14 : 8) {
+                ForEach(Array(DescriptionFormat.blocks(text, lines: keepsLines ? .kept : .joined).enumerated()), id: \.offset) { _, block in
                     switch block {
                     case .paragraph(let text):
-                        line(text)
+                        lines(text, kept: keepsLines)
                     case .listItem(let marker, let text, let level):
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text(verbatim: marker)
                                 .monospacedDigit()
                                 .foregroundStyle(.secondary)
-                            line(text)
+                            lines(text, kept: keepsLines)
                         }
                         .padding(.leading, CGFloat(level) * 16)
                     case .code(let code):
@@ -62,8 +67,18 @@ struct DescriptionText: View {
         }
     }
 
-    private func line(_ text: String) -> Text {
-        display == .markdown ? Text(Self.inline(text)) : Text(verbatim: text)
+    /// A paragraph's or list item's text: one wrapped run, or with kept lines one wrapped unit per line,
+    /// spaced a little apart.
+    @ViewBuilder private func lines(_ text: String, kept: Bool) -> some View {
+        if kept {
+            VStack(alignment: .leading, spacing: 5) {
+                ForEach(Array(text.split(separator: "\n", omittingEmptySubsequences: false).enumerated()), id: \.offset) { _, unit in
+                    Text(verbatim: String(unit))
+                }
+            }
+        } else {
+            display == .markdown ? Text(Self.inline(text)) : Text(verbatim: text)
+        }
     }
 
     /// Inline Markdown: `code` in monospace, emphasis, links. Text that is not valid Markdown shows as it is.
