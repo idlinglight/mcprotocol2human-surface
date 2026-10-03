@@ -8,7 +8,10 @@ Personal tool, built locally, not distributed.
 
 ## What it does
 
-- Keeps a list of servers, stdio or Streamable HTTP, edited in Settings (⌘,).
+- Keeps a list of servers, stdio or Streamable HTTP, edited in Settings (⌘,). Entries can be pasted in
+  as JSON ("Add Servers from JSON…" below the list, or ⌘V on it): a whole configuration file, its
+  `mcpServers` object, a single entry, or a `"name": {…}` part of a file. A sheet shows what will be added
+  first.
 - Selecting a server connects to it, finds out which protocol revision it speaks, lists its tools and
   disconnects again. Refresh (⌘R) does it again; Refresh All (⇧⌘R) does it for every server.
 - A filter above the tool list (⌘F, Escape clears it). The two buttons beside it show the setting in

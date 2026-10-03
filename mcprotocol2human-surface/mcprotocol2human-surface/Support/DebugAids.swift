@@ -19,10 +19,12 @@ import ScreenCaptureKit
 /// - `M2H_SNAPSHOT=/path/to/file.png`: once the selected server's run has finished (or after the delay),
 ///   write an image of the main window there and a text dump next to it (`file.txt`) with the model's
 ///   state and the view hierarchy. `M2H_SNAPSHOT_DELAY=<seconds>` is the longest wait (default 30);
-///   `M2H_SNAPSHOT_QUIT=1` quits afterwards; `M2H_SNAPSHOT_SETTINGS=1` captures the Settings window instead.
+///   `M2H_SNAPSHOT_QUIT=1` quits afterwards; `M2H_SNAPSHOT_SETTINGS=1` captures the Settings window instead,
+///   or the sheet open on it.
 ///   The app activates itself first, taking the focus from whatever app has it.
 ///   The image comes from ScreenCaptureKit when the app may already record the screen (it never asks),
 ///   otherwise from drawing the window's views, which can miss materials such as the sidebar's.
+/// - `M2H_PASTE=<json>`: when Settings opens, open its "Add Servers from JSON" sheet with this text.
 ///
 /// `M2H_SERVERS_FILE` (not debug-only) points the app at another servers file.
 ///
@@ -106,6 +108,9 @@ enum DebugAids {
             await write(to: path, model: model)
             if environment["M2H_SNAPSHOT_QUIT"] == "1" {
                 NSApp.terminate(nil)
+                // An open sheet can keep the app from quitting; a debug run ends anyway.
+                try? await Task.sleep(for: .seconds(2))
+                exit(0)
             }
         }
     }
@@ -122,7 +127,7 @@ enum DebugAids {
             : NSApp.windows.first { $0.isVisible && $0.identifier?.rawValue == "main" }
                 ?? NSApp.mainWindow ?? NSApp.windows.first(where: \.isVisible)
         var image: CGImage?
-        if let window = target {
+        if let window = target?.attachedSheet ?? target {
             if let frameView = window.contentView?.superview {
                 report += "\n== View hierarchy of \"\(window.title)\" ==\n"
                 dump(frameView, depth: 0, into: &report)

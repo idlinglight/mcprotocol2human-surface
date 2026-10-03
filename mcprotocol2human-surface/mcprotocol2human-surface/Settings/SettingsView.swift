@@ -1,9 +1,12 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The server list as a form (ADR-0007). Edits are saved to the servers file as they happen.
 struct SettingsView: View {
     @Bindable var model: AppModel
     @State private var selection: ServerConfig.ID?
+    @State private var showsPasteSheet = false
+    @State private var pasteText = ""
 
     private var store: ServerStore { model.store }
 
@@ -23,6 +26,14 @@ struct SettingsView: View {
         .onDisappear { store.flush() }
         .onAppear {
             if selection == nil { selection = model.selectedConfig?.id ?? store.servers.first?.id }
+            #if DEBUG
+            if let text = DebugAids.environment["M2H_PASTE"] { openPasteSheet(with: text) }
+            #endif
+        }
+        .sheet(isPresented: $showsPasteSheet) {
+            PasteServersSheet(store: store, after: selection, onAdd: { ids in
+                if let first = ids.first { selection = first }
+            }, text: pasteText)
         }
     }
 
@@ -44,6 +55,10 @@ struct SettingsView: View {
                     }
                 }
             }
+            // ⌘V with the list focused; in a text field, ⌘V pastes into the field as usual.
+            .onPasteCommand(of: [.plainText]) { _ in
+                openPasteSheet(with: NSPasteboard.general.string(forType: .string) ?? "")
+            }
             Divider()
             HStack(spacing: 2) {
                 Button("Add Server", systemImage: "plus") {
@@ -53,6 +68,13 @@ struct SettingsView: View {
                     if let selection { remove(selection) }
                 }
                 .disabled(selection == nil)
+                Button("Add Servers from JSON…", systemImage: "curlybraces") {
+                    // Start from the clipboard when it holds something that may be server JSON.
+                    let clipboard = NSPasteboard.general.string(forType: .string) ?? ""
+                    let start = clipboard.trimmingCharacters(in: .whitespacesAndNewlines).first
+                    openPasteSheet(with: start == "{" || start == "\"" ? clipboard : "")
+                }
+                .help("Add Servers from JSON…")
                 Spacer()
             }
             .labelStyle(.iconOnly)
@@ -111,6 +133,12 @@ struct SettingsView: View {
             .help("Read the file again, dropping edits that are not saved yet")
         }
         .padding(10)
+    }
+
+    private func openPasteSheet(with text: String) {
+        guard store.loadError == nil else { return }
+        pasteText = text
+        showsPasteSheet = true
     }
 
     private func remove(_ id: ServerConfig.ID) {
