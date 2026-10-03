@@ -22,7 +22,8 @@ struct PasteServersSheet: View {
                 Section {
                     TextEditor(text: $text)
                         .font(.body.monospaced())
-                        .frame(minHeight: 90)
+                        // A fixed height, scrolling inside: a long paste must not push what was found out of view.
+                        .frame(height: 110)
                         .scrollContentBackground(.hidden)
                 } header: {
                     Text("JSON")
@@ -73,7 +74,9 @@ struct PasteServersSheet: View {
             }
             .padding(12)
         }
-        .frame(width: 600, height: 460)
+        // As tall as the Settings window allows, which is the limit for a sheet.
+        .frame(width: 600)
+        .frame(minHeight: 420, idealHeight: 640)
         .onChange(of: text, initial: true) { parse() }
     }
 
@@ -92,23 +95,87 @@ struct PasteServersSheet: View {
             note("The text gives no name; this one comes from the \(config.kind == .http || config.command.isEmpty ? "URL" : "command").")
         }
         clash(entry, outcome: outcome)
-        LabeledContent(config.kindLabel) {
-            Text(config.kind == .http ? config.url : config.summary)
-                .font(.body.monospaced())
-                .lineLimit(3)
-                .textSelection(.enabled)
-        }
+        details(config)
         if case .unsupported(let type) = config.kind {
             note("Transport “\(type)” is not supported. The entry is kept in the file, but cannot be looked at.")
         }
-        if !config.environment.isEmpty {
-            LabeledContent("Environment") { pairs(config.environment, separator: "=") }
+    }
+
+    /// The entry with every value as stored (the pasted text shows them anyway). Left-aligned, so a wrapped
+    /// line reads as one: each argument starts with its number, each variable or header with its name on a
+    /// line of its own, and values wrap indented below. Names never wrap, since wrapping hyphenates them.
+    private func details(_ config: ServerConfig) -> some View {
+        let showsURL = config.kind == .http || (config.command.isEmpty && !config.url.isEmpty)
+        return Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 8) {
+            detail("Transport") { Text(config.kindLabel) }
+            if showsURL {
+                detail("URL") { value(config.url) }
+            } else {
+                detail("Command") { value(config.command) }
+                if !config.arguments.isEmpty {
+                    detail("Arguments") {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(Array(config.arguments.enumerated()), id: \.offset) { index, argument in
+                                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                    Text("\(index + 1)")
+                                        .monospacedDigit()
+                                        .foregroundStyle(.secondary)
+                                    value(argument)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if !config.environment.isEmpty {
+                detail("Environment") { pairs(config.environment) }
+            }
+            if !config.headers.isEmpty {
+                detail("Headers") { pairs(config.headers) }
+            }
+            if !config.extra.isEmpty {
+                detail("Also kept") { Text(config.extra.map(\.key).joined(separator: ", ")) }
+            }
         }
-        if !config.headers.isEmpty {
-            LabeledContent("Headers") { pairs(config.headers, separator: ": ") }
+        .textSelection(.enabled)
+    }
+
+    private func detail(_ label: String, @ViewBuilder content: () -> some View) -> some View {
+        GridRow {
+            Text(label)
+                .foregroundStyle(.secondary)
+                .fixedSize()
+            content()
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         }
-        if !config.extra.isEmpty {
-            LabeledContent("Also kept", value: config.extra.map(\.key).joined(separator: ", "))
+    }
+
+    @ViewBuilder private func value(_ text: String) -> some View {
+        if text.isEmpty {
+            Text("(empty)")
+                .italic()
+                .foregroundStyle(.secondary)
+        } else {
+            Text(text)
+                .font(.body.monospaced())
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func pairs(_ pairs: [KeyValue]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(pairs) { pair in
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(pair.key)
+                        .font(.body.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .help(pair.key)
+                    value(pair.value)
+                        .padding(.leading, 16)
+                }
+            }
         }
     }
 
@@ -125,16 +192,6 @@ struct PasteServersSheet: View {
         } else if outcome.name != name, !name.isEmpty {
             note("Another entry above has this name; added as “\(outcome.name)”.")
         }
-    }
-
-    /// Names with their values, as they will be stored: the pasted text above shows them anyway.
-    private func pairs(_ pairs: [KeyValue], separator: String) -> some View {
-        VStack(alignment: .trailing, spacing: 2) {
-            ForEach(pairs) { Text($0.key + separator + $0.value) }
-        }
-        .font(.body.monospaced())
-        .multilineTextAlignment(.trailing)
-        .textSelection(.enabled)
     }
 
     private func note(_ text: String) -> some View {
