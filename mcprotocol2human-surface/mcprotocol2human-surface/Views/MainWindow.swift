@@ -134,56 +134,60 @@ struct ServerColumn: View {
         let run = model.run(for: name)
         let filter = model.toolFilter
         let shown = run?.result.map { filter.apply($0.tools) } ?? []
-        List(selection: $model.selectedPage) {
-            Section {
+        VStack(spacing: 0) {
+            // The pages that are not tools stay at the top, above the filter that does not apply to them.
+            // A list of their own, sharing the selection, so they look and select like the tool rows.
+            List(selection: $model.selectedPage) {
                 Label("Overview", systemImage: "info.circle")
                     .tag(ServerPage.overview)
                 Label("Traffic", systemImage: "arrow.left.arrow.right")
                     .badge(run?.traffic.count ?? 0)
                     .tag(ServerPage.traffic)
             }
-            if let failure = run?.failure {
-                Section {
-                    Label(failure.message, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                        .textSelection(.enabled)
-                        .selectionDisabled()
-                }
-            }
-            if let result = run?.result {
-                Section(filter.header(shown: shown.count, total: result.tools.count)) {
-                    if !result.toolsAdvertised {
-                        Text("The server does not advertise the tools capability.")
-                            .foregroundStyle(.secondary)
-                            .selectionDisabled()
-                    } else if shown.isEmpty, filter.isActive {
-                        Text(filter.inverted ? "Every tool matches." : "No tool matches.")
-                            .foregroundStyle(.secondary)
-                            .selectionDisabled()
-                    }
-                    ForEach(shown) { tool in
-                        ToolRow(tool: tool)
-                            .tag(ServerPage.tool(tool.position))
-                    }
-                }
-            }
-        }
-        .safeAreaInset(edge: .top, spacing: 0) {
+            .scrollDisabled(true)
+            .frame(height: Self.pagesHeight)
+
             if let result = run?.result, !result.tools.isEmpty {
-                VStack(spacing: 0) {
-                    FilterBar(filter: $model.toolFilter, focused: $filterFocused)
-                    Divider()
+                Divider()
+                FilterBar(filter: $model.toolFilter, focused: $filterFocused)
+            }
+            Divider()
+
+            List(selection: $model.selectedPage) {
+                if let failure = run?.failure {
+                    Section {
+                        Label(failure.message, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                            .textSelection(.enabled)
+                            .selectionDisabled()
+                    }
                 }
-                .background(.bar)
+                if let result = run?.result {
+                    Section(filter.header(shown: shown.count, total: result.tools.count)) {
+                        if !result.toolsAdvertised {
+                            Text("The server does not advertise the tools capability.")
+                                .foregroundStyle(.secondary)
+                                .selectionDisabled()
+                        } else if shown.isEmpty, filter.isActive {
+                            Text(filter.inverted ? "Every tool matches." : "No tool matches.")
+                                .foregroundStyle(.secondary)
+                                .selectionDisabled()
+                        }
+                        ForEach(shown) { tool in
+                            ToolRow(tool: tool)
+                                .tag(ServerPage.tool(tool.position))
+                        }
+                    }
+                }
+            }
+            .overlay {
+                if run == nil, model.isRunning(name) {
+                    ProgressView("Connecting…")
+                }
             }
         }
         .onChange(of: model.filterFocusRequests) {
             filterFocused = true
-        }
-        .overlay {
-            if run == nil, model.isRunning(name) {
-                ProgressView("Connecting…")
-            }
         }
         .safeAreaInset(edge: .bottom) {
             if let run, let current = model.selectedConfig, !Self.sameSettings(run.config, current) {
@@ -196,6 +200,9 @@ struct ServerColumn: View {
             }
         }
     }
+
+    /// Two rows of the list style, plus its insets.
+    static let pagesHeight: CGFloat = 72
 
     /// Equal apart from the identity SwiftUI uses.
     static func sameSettings(_ a: ServerConfig, _ b: ServerConfig) -> Bool {
