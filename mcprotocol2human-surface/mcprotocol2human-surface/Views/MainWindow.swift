@@ -130,7 +130,7 @@ struct ServerColumn: View {
     var name: String
     @FocusState private var filterFocused: Bool
     /// A viewing preference, so it is remembered; the filter is not.
-    @AppStorage("showsToolDescriptions") private var showsDescriptions = true
+    @AppStorage("showsToolDescriptions", store: Preferences.store) private var showsDescriptions = true
 
     var body: some View {
         let run = model.run(for: name)
@@ -175,14 +175,18 @@ struct ServerColumn: View {
                                 .foregroundStyle(.secondary)
                                 .selectionDisabled()
                         }
-                        ForEach(shown) { tool in
+                        // The mode is part of each row's identity: the list keeps row heights for rows it
+                        // already has, so switching modes must replace the rows rather than update them.
+                        ForEach(shown, id: \.position) { tool in
                             ToolRow(tool: tool, showsDescription: showsDescriptions)
                                 .tag(ServerPage.tool(tool.position))
+                                .id(RowIdentity(position: tool.position, showsDescription: showsDescriptions))
                         }
                     } header: {
-                        HStack {
+                        // Right after the count, not at the trailing edge, where it would line up with the
+                        // filter buttons and look like one of them.
+                        HStack(spacing: 6) {
                             Text(filter.header(shown: shown.count, total: result.tools.count))
-                            Spacer()
                             StateButton(
                                 symbol: showsDescriptions ? "eye" : "eye.slash",
                                 state: showsDescriptions ? "Showing the first line of each description" : "Showing names only",
@@ -190,6 +194,7 @@ struct ServerColumn: View {
                             ) {
                                 showsDescriptions.toggle()
                             }
+                            Spacer(minLength: 0)
                         }
                     }
                 }
@@ -222,6 +227,12 @@ struct ServerColumn: View {
     static func sameSettings(_ a: ServerConfig, _ b: ServerConfig) -> Bool {
         a.entry == b.entry
     }
+}
+
+/// A tool row's identity in the list: its tool, and whether it shows the description line.
+private struct RowIdentity: Hashable {
+    var position: Int
+    var showsDescription: Bool
 }
 
 struct ToolRow: View {
