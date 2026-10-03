@@ -20,12 +20,13 @@ nonisolated enum TransportEvent: Sendable {
 nonisolated protocol MCPTransport: Sendable {
     /// Messages that arrive on their own, and the end of the connection.
     var events: AsyncStream<TransportEvent> { get }
-    /// True when replies come back as the result of `send` (HTTP), false when they arrive as events (stdio).
+    /// True when replies come back during `send` (HTTP), false when they arrive as events (stdio).
     var repliesArriveWithSend: Bool { get }
     func start() async throws
-    /// Sends one message. Transports that carry replies on the same exchange return the messages received
-    /// for it, in order; the others return an empty array.
-    func send(_ message: OutgoingMessage) async throws -> [JSONValue]
+    /// Sends one message. Transports that carry replies on the same exchange pass each message received
+    /// for it to `receive` as soon as it arrives, so the server's own requests can be answered while it
+    /// waits, and stop reading once `receive` returns true. Other transports never call `receive`.
+    func send(_ message: OutgoingMessage, receive: @escaping @Sendable (JSONValue) async -> Bool) async throws
     /// Headers for later HTTP requests: the protocol version, and whether to name the method.
     func setProtocolHeaders(version: String?, namesMethod: Bool) async
     func close() async

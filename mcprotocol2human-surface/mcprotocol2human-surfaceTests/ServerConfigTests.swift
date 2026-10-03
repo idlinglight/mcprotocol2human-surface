@@ -65,6 +65,22 @@ struct ServerStoreTests {
         #expect(try String(contentsOf: url, encoding: .utf8) == "{ not json")
     }
 
+    @Test func flushWritesAPendingEditAtOnce() throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "m2h-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let store = ServerStore(fileURL: url)
+        store.add()
+        #expect(!FileManager.default.fileExists(atPath: url.path))
+        store.flush()
+        #expect(try ServerFile(data: Data(contentsOf: url)).servers.map(\.name) == ["new-server"])
+    }
+
+    @Test func argumentsAreOnePerLineWithoutTrailingEmptyOnes() {
+        #expect(ServerEditor.arguments(from: "run\n\n--flag\n\n") == ["run", "", "--flag"])
+        #expect(ServerEditor.arguments(from: "") == [])
+        #expect(ServerEditor.arguments(from: "a b") == ["a b"])
+    }
+
     @Test func refusesDuplicateNames() throws {
         let url = FileManager.default.temporaryDirectory.appending(path: "m2h-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: url) }

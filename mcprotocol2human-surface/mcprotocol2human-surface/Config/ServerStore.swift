@@ -16,6 +16,7 @@ final class ServerStore {
 
     @ObservationIgnored private var fileExtra: [JSONMember] = []
     @ObservationIgnored private var saveTask: Task<Void, Never>?
+    @ObservationIgnored private var savePending = false
 
     /// `M2H_SERVERS_FILE` if set, else `~/Library/Application Support/<bundle id>/servers.json`.
     static var defaultFileURL: URL {
@@ -33,6 +34,7 @@ final class ServerStore {
 
     func load() {
         saveTask?.cancel()
+        savePending = false
         saveError = nil
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             servers = []
@@ -127,6 +129,7 @@ final class ServerStore {
     }
 
     private func scheduleSave() {
+        savePending = true
         saveTask?.cancel()
         saveTask = Task {
             try? await Task.sleep(for: .milliseconds(400))
@@ -135,8 +138,16 @@ final class ServerStore {
         }
     }
 
+    /// Writes an edit that is still waiting for its delayed save, such as when the app quits.
+    func flush() {
+        guard savePending else { return }
+        saveTask?.cancel()
+        save()
+    }
+
     /// Writes the file now, unless reading it failed or the list has a problem.
     func save() {
+        savePending = false
         guard loadError == nil else { return }
         if let problem = validationProblem {
             saveError = "Not saved: \(problem)"

@@ -63,7 +63,11 @@ actor MCPConnection {
     private var nextID = 1
     private var pending: [Int: CheckedContinuation<RPCOutcome, any Error>] = [:]
     private var timers: [Int: Task<Void, Never>] = [:]
+    /// Error responses that matched no open request, kept per request until it settles: some servers
+    /// answer with an error whose id is null or made up, and it still answers that request.
+    private var strays: [Int: [JSONValue]] = [:]
     private var closedReason: String??
+    private var isClosed = false
     private var eventsTask: Task<Void, Never>?
 
     init(transport: any MCPTransport, traffic: TrafficLog) {
@@ -113,31 +117,38 @@ actor MCPConnection {
         var payload: JSONValue = ["jsonrpc": "2.0", "method": .string(method)]
         if let params { payload = payload.setting("params", to: params) }
         traffic.record(.sent, payload.compactText)
-        _ = try await transport.send(OutgoingMessage(payload: payload, method: method, expectsReply: false))
+        try await transport.send(OutgoingMessage(payload: payload, method: method, expectsReply: false)) { _ in true }
     }
 
-    func close() async {
+    /// Closes the transport and fails whatever is still waiting. Closing twice does nothing.
+    func close(reason: String = "Closed by the client.") async {
+        guard !isClosed else { return }
+        isClosed = true
+        closedReason = .some(reason)
         eventsTask?.cancel()
-        await transport.close()
         for id in pending.keys {
-            settle(id, with: .failure(ConnectionError.closed("Closed by the client.")))
+            settle(id, with: .failure(ConnectionError.closed(reason)))
         }
-        closedReason = .some("Closed by the client.")
+        await transport.close()
+    }
+
+    /// For task cancellation: ends the run as soon as possible.
+    func cancel() async {
+        guard !isClosed else { return }
+        traffic.record(.note, "Cancelled.")
+        await close(reason: "Cancelled.")
     }
 
     // MARK: -
 
     private func exchange(id: Int, method: String, message: OutgoingMessage) async {
         do {
-            let replies = try await transport.send(message)
-            var stray: [JSONValue] = []
-            for reply in replies where !(await handle(reply)) {
-                stray.append(reply)
+            try await transport.send(message) { reply in
+                await self.receive(reply, during: id)
             }
             guard transport.repliesArriveWithSend, pending[id] != nil else { return }
-            // Some servers answer with an error whose id is null or made up; it still answers this request.
-            if let error = stray.lazy.compactMap({ RPCError(response: $0) }).first {
-                traffic.record(.note, "The error response carries id \(stray.first?["id"]?.compactText ?? "none") instead of \(id); taken as the answer to \(method).")
+            if let stray = strays[id]?.first, let error = RPCError(response: stray) {
+                traffic.record(.note, "The error response carries id \(stray["id"]?.compactText ?? "none") instead of \(id); taken as the answer to \(method).")
                 settle(id, with: .success(.error(error)))
             } else {
                 settle(id, with: .failure(ConnectionError.noReply(method: method)))
@@ -151,6 +162,14 @@ actor MCPConnection {
         } catch {
             settle(id, with: .failure(error))
         }
+    }
+
+    /// A message that arrived while request `id` was being sent. Returns true once that request has its answer.
+    private func receive(_ message: JSONValue, during id: Int) async -> Bool {
+        if !(await handle(message)), RPCError(response: message) != nil {
+            strays[id, default: []].append(message)
+        }
+        return pending[id] == nil
     }
 
     private func handle(_ event: TransportEvent) async {
@@ -198,7 +217,7 @@ actor MCPConnection {
             : ["jsonrpc": "2.0", "id": id, "error": ["code": -32601, "message": .string("Method not found: \(method)")]]
         traffic.record(.sent, reply.compactText)
         do {
-            _ = try await transport.send(OutgoingMessage(payload: reply, method: nil, expectsReply: false))
+            try await transport.send(OutgoingMessage(payload: reply, method: nil, expectsReply: false)) { _ in true }
         } catch {
             traffic.record(.note, "Could not answer \(method): \(error.localizedDescription)")
         }
@@ -206,6 +225,7 @@ actor MCPConnection {
 
     private func settle(_ id: Int, with outcome: Result<RPCOutcome, any Error>) {
         timers.removeValue(forKey: id)?.cancel()
+        strays[id] = nil
         guard let continuation = pending.removeValue(forKey: id) else { return }
         continuation.resume(with: outcome)
     }

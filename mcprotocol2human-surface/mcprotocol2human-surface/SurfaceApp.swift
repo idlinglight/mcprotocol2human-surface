@@ -11,6 +11,9 @@ struct SurfaceApp: App {
         _model = State(initialValue: model)
         let build = BuildInfo.current
         Log.app.notice("Launch: version \(build.version, privacy: .public) (\(build.build, privacy: .public)). \(build.summary, privacy: .public)")
+        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { model.store.flush() }
+        }
         #if DEBUG
         DebugAids.apply(to: model)
         #endif

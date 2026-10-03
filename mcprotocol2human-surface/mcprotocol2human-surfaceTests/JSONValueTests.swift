@@ -21,6 +21,13 @@ struct JSONValueTests {
         #expect(value == .string("a\"b\\c/d\né😀"))
     }
 
+    @Test func loneSurrogatesBecomeReplacementCharactersWithoutEatingWhatFollows() throws {
+        #expect(try JSONValue.parse(#""\ud800\u0041""#) == .string("\u{FFFD}A"))
+        #expect(try JSONValue.parse(#""\ud800x""#) == .string("\u{FFFD}x"))
+        #expect(try JSONValue.parse(#""\udc00""#) == .string("\u{FFFD}"))
+        #expect(try JSONValue.parse(#""\ud800\ud83d\ude00""#) == .string("\u{FFFD}😀"))
+    }
+
     @Test func writesWhatItReads() throws {
         let text = #"{"name":"x","list":[true,false,null,{"k":"tab\tquote\""}],"n":-1.5e-3,"empty":{},"none":[]}"#
         let value = try JSONValue.parse(text)

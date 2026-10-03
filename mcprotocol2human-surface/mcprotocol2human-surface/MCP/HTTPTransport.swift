@@ -45,7 +45,7 @@ nonisolated final class HTTPTransport: MCPTransport, @unchecked Sendable {
         }
     }
 
-    func send(_ message: OutgoingMessage) async throws -> [JSONValue] {
+    func send(_ message: OutgoingMessage, receive: @escaping @Sendable (JSONValue) async -> Bool) async throws {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         for header in headers where !header.key.isEmpty {
@@ -66,6 +66,8 @@ nonisolated final class HTTPTransport: MCPTransport, @unchecked Sendable {
         } catch {
             throw TransportError.connectionFailed(error.localizedDescription)
         }
+        // Whatever is left unread once the reply is in (or on an error) is not wanted.
+        defer { bytes.task.cancel() }
         guard let http = response as? HTTPURLResponse else {
             throw TransportError.connectionFailed("not an HTTP response")
         }
@@ -84,33 +86,33 @@ nonisolated final class HTTPTransport: MCPTransport, @unchecked Sendable {
                 status: http.statusCode, body: text, json: try? JSONValue.parse(body)))
         }
         if http.statusCode == 202 || !message.expectsReply {
-            return []
+            return
         }
         let mediaType = contentType.split(separator: ";").first.map { $0.trimmingCharacters(in: .whitespaces).lowercased() } ?? ""
         switch mediaType {
         case "text/event-stream":
-            return try await readEventStream(bytes, answering: message.payload["id"])
+            try await readEventStream(bytes, receive: receive)
         case "application/json":
             let body = try await collect(bytes)
             let text = String(decoding: body, as: UTF8.self)
             traffic.record(.received, text)
+            let value: JSONValue
             do {
-                let value = try JSONValue.parse(body)
-                return value.arrayValue ?? [value]
+                value = try JSONValue.parse(body)
             } catch {
                 throw TransportError.unreadableReply(error.localizedDescription)
             }
+            _ = await receive(value)
         default:
             throw TransportError.unexpectedContentType(contentType.isEmpty ? "none" : contentType)
         }
     }
 
-    /// Reads events until the stream ends or the reply to `requestID` has arrived.
-    private func readEventStream(_ bytes: URLSession.AsyncBytes, answering requestID: JSONValue?) async throws -> [JSONValue] {
+    /// Hands each event's message to `receive` until it says the reply is in, or the stream ends.
+    private func readEventStream(_ bytes: URLSession.AsyncBytes, receive: @Sendable (JSONValue) async -> Bool) async throws {
         var parser = SSEParser()
-        var messages: [JSONValue] = []
         var count = 0
-        func take(_ event: SSEEvent) -> Bool {
+        func take(_ event: SSEEvent) async -> Bool {
             // Events of another type are not MCP messages; an empty data line primes the stream.
             guard event.type == nil || event.type == "message" else {
                 traffic.record(.note, "Ignored event of type “\(event.type ?? "")”")
@@ -122,16 +124,14 @@ nonisolated final class HTTPTransport: MCPTransport, @unchecked Sendable {
                 traffic.record(.note, "That event's data is not JSON.")
                 return false
             }
-            messages.append(value)
-            let isReply = value["method"] == nil && (value["result"] != nil || value["error"] != nil)
-            return isReply && value["id"] == requestID
+            return await receive(value)
         }
         do {
             for try await byte in bytes {
                 count += 1
                 guard count <= replyLimit else { throw TransportError.unreadableReply("event stream longer than \(replyLimit) bytes") }
-                if let event = parser.append(byte), take(event) {
-                    return messages
+                if let event = parser.append(byte), await take(event) {
+                    return
                 }
             }
         } catch let error as TransportError {
@@ -141,9 +141,8 @@ nonisolated final class HTTPTransport: MCPTransport, @unchecked Sendable {
         }
         if let event = parser.finish() {
             traffic.record(.note, "The event stream ended without a blank line after its last event.")
-            _ = take(event)
+            _ = await take(event)
         }
-        return messages
     }
 
     private func collect(_ bytes: URLSession.AsyncBytes) async throws -> Data {

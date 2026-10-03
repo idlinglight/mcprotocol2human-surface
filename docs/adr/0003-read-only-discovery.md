@@ -15,6 +15,8 @@ themselves") need only the list methods.
 - Discovery is one-shot. Selecting a server runs it the first time; after that, Refresh does. A run opens
   a connection (for stdio, starts the server process), runs discovery, records the result with its time
   and traffic, and closes the connection again. Nothing stays connected between runs.
+- Refresh during a run cancels it and starts a new one; a cancelled run, or one whose server was removed
+  or renamed meanwhile, leaves no result.
 
 ## Consequences
 
