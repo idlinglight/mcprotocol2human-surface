@@ -84,3 +84,5 @@ Recorded as ADRs in [docs/adr](docs/adr):
 - More checks on tool definitions, in the spirit of the notes that exist now.
 - An estimate of how much context the tool descriptions take up.
 - Prompts and resources, listed like tools.
+- Keyboard navigation across the server pages (Overview, Traffic) and the tool list, which are separate
+  lists for now.

@@ -38,7 +38,8 @@ final class AppModel {
     var selectedServer: String? {
         didSet {
             guard selectedServer != oldValue else { return }
-            selectedPage = nil
+            // The overview is what a newly selected server shows, so the list says so too.
+            selectedPage = selectedServer == nil ? nil : .overview
             if let selectedServer { refreshIfNeeded(selectedServer) }
         }
     }
