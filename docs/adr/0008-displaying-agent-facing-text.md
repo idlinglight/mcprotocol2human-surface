@@ -54,3 +54,17 @@ settle.
   token is an index into the model's vocabulary, and what the model works with is the high-dimensional
   vector behind it, transformed in context. Token counts stay useful as an estimate of cost; that
   estimate depends on the model's tokenizer.
+
+## Trials
+
+2026-10-03, first round, with descriptions from a Python server (docstrings hard-wrapped by length)
+and an IDE's built-in server:
+
+- "Markdown" turned glob examples such as `"**/*.kt"` bold and dropped the asterisks, showing
+  patterns other than those the model is given. "Reflowed" shows them as sent.
+- Switching between displays on the same text showed something no single display did: the IDE's
+  server breaks lines per sentence rather than by length, though not entirely consistently.
+  "Wrapped lines" was added for that kind of text. It shows the structure where "Reflowed" joins it
+  away, and suits text hard-wrapped by length poorly.
+- So several displays, switched in place and remembered, are useful in themselves: the comparison is
+  where these observations came from.
