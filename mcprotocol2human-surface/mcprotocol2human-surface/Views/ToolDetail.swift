@@ -22,11 +22,18 @@ struct ToolDetail: View {
                         .padding(.top, 4)
                 }
 
-                DetailSection("Description") {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 6) {
+                        Text("Description")
+                            .font(.headline)
+                        if let description = tool.description, !description.isEmpty {
+                            CopyButton(text: description, help: "Copy the description exactly as the server sent it")
+                            Spacer()
+                            DescriptionDisplayPicker()
+                        }
+                    }
                     if let description = tool.description, !description.isEmpty {
-                        Text(description)
-                            .textSelection(.enabled)
-                            .fixedSize(horizontal: false, vertical: true)
+                        DescriptionText(text: description)
                     } else {
                         Text("No description.").foregroundStyle(.secondary)
                     }
@@ -168,9 +175,7 @@ struct ParameterRow: View {
                     .textSelection(.enabled)
             }
             if let description = parameter.description, !description.isEmpty {
-                Text(description)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
+                DescriptionText(text: description)
             }
             facts
             if !parameter.children.isEmpty {
@@ -219,22 +224,9 @@ struct JSONText: View {
 
     var body: some View {
         let text = value.prettyText
-        VStack(alignment: .trailing, spacing: 4) {
-            Button("Copy", systemImage: "doc.on.doc") {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(text, forType: .string)
-            }
-            .buttonStyle(.borderless)
-            .font(.caption)
-            ScrollView(.horizontal) {
-                Text(text)
-                    .font(.callout.monospaced())
-                    .textSelection(.enabled)
-                    .fixedSize()
-                    .padding(8)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.06)))
+        VStack(alignment: .trailing, spacing: 2) {
+            CopyButton(text: text, help: "Copy this JSON")
+            MonospaceBlock(text: text)
         }
     }
 }

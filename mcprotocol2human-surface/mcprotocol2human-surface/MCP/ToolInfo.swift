@@ -53,12 +53,9 @@ nonisolated struct ToolInfo: Identifiable, Sendable, Hashable {
         title ?? annotations?["title"]?.stringValue ?? (name.isEmpty ? "(unnamed)" : name)
     }
 
-    /// The first non-empty line of the description.
+    /// The description's first paragraph (or list item, or code block), with hard-wrapped lines joined.
     var summary: String? {
-        description?
-            .split(whereSeparator: \.isNewline)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .first { !$0.isEmpty }
+        description.flatMap(DescriptionFormat.summary)
     }
 
     var requiredParameterCount: Int { parameters.count(where: \.isRequired) }

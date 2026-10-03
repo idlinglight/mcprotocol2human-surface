@@ -18,7 +18,7 @@ struct ToolInfoTests {
          "annotations": {"readOnlyHint": true}}
         """#)
         let tool = ToolInfo(raw: raw, position: 0)
-        #expect(tool.summary == "Ship it.")
+        #expect(tool.summary == "Ship it. Second line.", "hard-wrapped lines of the first paragraph are joined")
         #expect(tool.parameters.map(\.name) == ["zeta", "address", "note", "tags"])
         #expect(tool.parameters.map(\.typeLabel) == ["string", "Address (object)", "string | null", "array of string"])
         #expect(tool.parameters.map(\.isRequired) == [false, true, false, false])
