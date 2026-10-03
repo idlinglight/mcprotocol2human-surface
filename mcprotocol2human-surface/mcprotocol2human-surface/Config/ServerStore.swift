@@ -86,6 +86,31 @@ final class ServerStore {
         return copy.id
     }
 
+    /// Adds pasted entries after `id`, as `PastedServers.plan` says: under a free name, or at the position of
+    /// the server they replace. A replacement has its own id, so an editor showing the old server starts
+    /// afresh rather than keeping state read from it. Returns the entries' ids in order.
+    @discardableResult
+    func add(_ entries: [PastedServers.Entry], after id: ServerConfig.ID?) -> [ServerConfig.ID] {
+        let outcomes = PastedServers.plan(entries, existing: servers)
+        var position = id.flatMap { id in servers.firstIndex { $0.id == id } }.map { $0 + 1 } ?? servers.endIndex
+        var ids: [ServerConfig.ID] = []
+        for (entry, outcome) in zip(entries, outcomes) {
+            var config = entry.config
+            config.name = outcome.name
+            // Ids are unique in the list, whatever the caller passes, such as the same entries twice.
+            if servers.contains(where: { $0.id == config.id }) { config.id = UUID() }
+            if let target = outcome.replaces, let index = servers.firstIndex(where: { $0.id == target }) {
+                servers[index] = config
+            } else {
+                servers.insert(config, at: position)
+                position += 1
+            }
+            ids.append(config.id)
+        }
+        if !ids.isEmpty { scheduleSave() }
+        return ids
+    }
+
     func remove(_ id: ServerConfig.ID) {
         servers.removeAll { $0.id == id }
         scheduleSave()
@@ -121,7 +146,11 @@ final class ServerStore {
     }
 
     private func uniqueName(_ base: String) -> String {
-        let names = Set(servers.map(\.name))
+        Self.uniqueName(base, avoiding: Set(servers.map(\.name)))
+    }
+
+    /// `base`, or the first of `base-2`, `base-3`, … that is not among `names`.
+    nonisolated static func uniqueName(_ base: String, avoiding names: Set<String>) -> String {
         guard names.contains(base) else { return base }
         var number = 2
         while names.contains("\(base)-\(number)") { number += 1 }
