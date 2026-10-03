@@ -55,7 +55,7 @@ struct PasteServersSheet: View {
             HStack {
                 // Here rather than in the form, so it is in view when deciding (ADR-0007).
                 if entries.contains(where: { !$0.config.environment.isEmpty || !$0.config.headers.isEmpty }) {
-                    Label("Values of environment variables and headers are not shown. They are stored in plain text in the servers file.",
+                    Label("Values of environment variables and headers are stored in plain text in the servers file.",
                           systemImage: "key")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -102,10 +102,10 @@ struct PasteServersSheet: View {
             note("Transport “\(type)” is not supported. The entry is kept in the file, but cannot be looked at.")
         }
         if !config.environment.isEmpty {
-            LabeledContent("Environment", value: config.environment.map(\.key).joined(separator: ", "))
+            LabeledContent("Environment") { pairs(config.environment, separator: "=") }
         }
         if !config.headers.isEmpty {
-            LabeledContent("Headers", value: config.headers.map(\.key).joined(separator: ", "))
+            LabeledContent("Headers") { pairs(config.headers, separator: ": ") }
         }
         if !config.extra.isEmpty {
             LabeledContent("Also kept", value: config.extra.map(\.key).joined(separator: ", "))
@@ -125,6 +125,16 @@ struct PasteServersSheet: View {
         } else if outcome.name != name, !name.isEmpty {
             note("Another entry above has this name; added as “\(outcome.name)”.")
         }
+    }
+
+    /// Names with their values, as they will be stored: the pasted text above shows them anyway.
+    private func pairs(_ pairs: [KeyValue], separator: String) -> some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            ForEach(pairs) { Text($0.key + separator + $0.value) }
+        }
+        .font(.body.monospaced())
+        .multilineTextAlignment(.trailing)
+        .textSelection(.enabled)
     }
 
     private func note(_ text: String) -> some View {

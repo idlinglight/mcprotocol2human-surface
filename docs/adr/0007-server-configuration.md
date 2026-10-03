@@ -31,8 +31,9 @@ form, not by reading JSON.
   `"name": {…}` fragment copied out of a file, with or without its trailing comma. Members that are not
   entries are left out and listed.
 - Nothing is added before a sheet shows what was found: each entry's name, transport and command or URL,
-  and the names of its environment variables and headers. Their values are not shown; a note beside the
-  Add button says they are stored in plain text.
+  and its environment variables and headers with their values. A note beside the Add button says the
+  values are stored in plain text. The values are not hidden: the pasted text shows them anyway, and the
+  form has to show them to edit them.
 - Names can be edited in the sheet. An entry without a name gets one derived from the URL's host or from
   the command (for launchers such as `npx`, `uvx` or `docker`, the package or image they run).
 - A name that is taken is added with a suffix (`name-2`) by default. For a clash with an existing server,
