@@ -35,14 +35,15 @@ nonisolated struct ToolFilter: Equatable, Sendable {
     }
 }
 
-/// The filter field, and under it two pop-up menus whose titles are the current settings in words:
-/// where to look, and whether to show the tools that match or those that do not.
+/// The filter field with two buttons beside it. Each button's symbol shows the setting in effect, and a
+/// click switches it: `text.page` searches names and descriptions, `text.page.slash` names only;
+/// `equal.circle` shows the matching tools, `notequal.circle` the others.
 struct FilterBar: View {
     @Binding var filter: ToolFilter
     var focused: FocusState<Bool>.Binding
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 6) {
             HStack(spacing: 4) {
                 Image(systemName: "line.3.horizontal.decrease")
                     .foregroundStyle(.secondary)
@@ -62,32 +63,44 @@ struct FilterBar: View {
             .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .textBackgroundColor)))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.secondary.opacity(0.3)))
 
-            Grid(alignment: .leading, horizontalSpacing: 6, verticalSpacing: 4) {
-                GridRow {
-                    Text("In")
-                        .gridColumnAlignment(.trailing)
-                    Picker("In", selection: $filter.namesOnly) {
-                        Text("Names + descriptions").tag(false)
-                        Text("Names only").tag(true)
-                    }
-                    .help("Where the filter text is looked for. Titles count as names.")
-                }
-                GridRow {
-                    Text("Show")
-                    Picker("Show", selection: $filter.inverted) {
-                        Text("Matching").tag(false)
-                        Text("Not matching").tag(true)
-                    }
-                    .help("Show the tools that contain the filter text, or those that do not")
-                }
+            StateButton(
+                symbol: filter.namesOnly ? "text.page.slash" : "text.page",
+                state: filter.namesOnly ? "Searching names only" : "Searching names and descriptions",
+                action: filter.namesOnly ? "include descriptions" : "search names only"
+            ) {
+                filter.namesOnly.toggle()
             }
-            .labelsHidden()
-            .pickerStyle(.menu)
-            .font(.callout)
-            .foregroundStyle(.secondary)
+            StateButton(
+                symbol: filter.inverted ? "notequal.circle" : "equal.circle",
+                state: filter.inverted ? "Showing tools that do not match" : "Showing tools that match",
+                action: filter.inverted ? "show the matching ones" : "show those that do not match"
+            ) {
+                filter.inverted.toggle()
+            }
         }
-        .controlSize(.small)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
+    }
+}
+
+/// A button whose symbol is the current setting; the tooltip says the setting and what a click does.
+private struct StateButton: View {
+    var symbol: String
+    var state: String
+    var action: String
+    var perform: () -> Void
+
+    var body: some View {
+        Button(action: perform) {
+            Image(systemName: symbol)
+                .font(.body)
+                // One box for every symbol, so both buttons and both states have the same size.
+                .frame(width: 18, height: 18)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .help("\(state). Click to \(action).")
+        .accessibilityLabel(state)
+        .accessibilityHint("Click to \(action).")
     }
 }
