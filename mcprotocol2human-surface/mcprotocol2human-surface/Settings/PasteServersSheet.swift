@@ -13,6 +13,9 @@ struct PasteServersSheet: View {
     @State private var notes: [String] = []
     @State private var shape = PastedServers.Shape.entriesByName
     @State private var problem: String?
+    /// The entries of the last text that could be read, so edits survive text that briefly cannot be.
+    @State private var remembered: [PastedServers.Entry] = []
+    @State private var isAdding = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -66,11 +69,14 @@ struct PasteServersSheet: View {
                 Button("Cancel", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button(entries.count > 1 ? "Add \(entries.count) Servers" : "Add Server") {
+                    // Once only, even if Return comes again while the sheet goes away.
+                    guard !isAdding else { return }
+                    isAdding = true
                     onAdd(store.add(entries, after: after))
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(entries.isEmpty)
+                .disabled(entries.isEmpty || isAdding)
             }
             .padding(12)
         }
@@ -183,7 +189,7 @@ struct PasteServersSheet: View {
     /// by an entry above it.
     @ViewBuilder private func clash(_ entry: PastedServers.Entry, outcome: PastedServers.Outcome) -> some View {
         let name = entry.config.name.trimmingCharacters(in: .whitespaces)
-        if store.server(named: name) != nil {
+        if outcome.canReplace {
             Picker("A server named “\(name)” exists", selection: replace(of: entry.id)) {
                 Text("Add as “\(alternativeName(for: entry.id))”").tag(false)
                 Text("Replace it").tag(true)
@@ -214,6 +220,10 @@ struct PasteServersSheet: View {
             get: { entries.first { $0.id == id }?.config.name ?? "" },
             set: { name in
                 guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
+                // A choice to replace was about the old name's server, not whichever one the new name has.
+                if name.trimmingCharacters(in: .whitespaces) != entries[index].config.name.trimmingCharacters(in: .whitespaces) {
+                    entries[index].replace = false
+                }
                 entries[index].config.name = name
             })
     }
@@ -228,12 +238,13 @@ struct PasteServersSheet: View {
     }
 
     /// Reads the text again. Entries that are still there, at the same place under the same original name,
-    /// keep what the user changed about them.
+    /// keep what the user changed about them, also across text that could not be read in between.
     private func parse() {
+        if !entries.isEmpty { remembered = entries }
         do throws(PasteError) {
             var pasted = try PastedServers(text: text)
-            for index in pasted.entries.indices where entries.indices.contains(index) {
-                let previous = entries[index]
+            for index in pasted.entries.indices where remembered.indices.contains(index) {
+                let previous = remembered[index]
                 guard previous.originalName == pasted.entries[index].originalName else { continue }
                 pasted.entries[index].config.id = previous.config.id
                 pasted.entries[index].config.name = previous.config.name

@@ -37,6 +37,8 @@ nonisolated struct PastedServers: Sendable {
     struct Outcome: Equatable, Sendable {
         var name: String
         var replaces: ServerConfig.ID?
+        /// Whether the entry may replace the existing server of its name, which the sheet then offers.
+        var canReplace = false
     }
 
     /// What the text was taken for; the raw value says it in words.
@@ -179,19 +181,21 @@ nonisolated struct PastedServers: Sendable {
 
     /// What adding `entries` to `existing` would do, in order. A name that is taken, by a server that stays
     /// or by an entry before it, gets the next free suffix (`name-2`), unless the entry is to replace the
-    /// existing server of that name. An empty name gets a derived one.
+    /// existing server of that name. Only the first entry with a name may replace, so that one choice
+    /// decides it. An empty name gets a derived one.
     static func plan(_ entries: [Entry], existing: [ServerConfig]) -> [Outcome] {
         var taken = Set(existing.map(\.name))
-        var replaced: Set<String> = []
+        var seen: Set<String> = []
         return entries.map { entry in
             let trimmed = entry.config.name.trimmingCharacters(in: .whitespaces)
             let base = trimmed.isEmpty ? derivedName(for: entry.config) : trimmed
-            if entry.replace, let target = existing.first(where: { $0.name == base }), replaced.insert(base).inserted {
-                return Outcome(name: base, replaces: target.id)
+            let target = seen.insert(base).inserted ? existing.first { $0.name == base } : nil
+            if entry.replace, let target {
+                return Outcome(name: base, replaces: target.id, canReplace: true)
             }
             let name = ServerStore.uniqueName(base, avoiding: taken)
             taken.insert(name)
-            return Outcome(name: name, replaces: nil)
+            return Outcome(name: name, replaces: nil, canReplace: target != nil)
         }
     }
 }

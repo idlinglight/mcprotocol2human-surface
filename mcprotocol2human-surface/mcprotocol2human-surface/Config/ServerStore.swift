@@ -97,6 +97,8 @@ final class ServerStore {
         for (entry, outcome) in zip(entries, outcomes) {
             var config = entry.config
             config.name = outcome.name
+            // Ids are unique in the list, whatever the caller passes, such as the same entries twice.
+            if servers.contains(where: { $0.id == config.id }) { config.id = UUID() }
             if let target = outcome.replaces, let index = servers.firstIndex(where: { $0.id == target }) {
                 servers[index] = config
             } else {

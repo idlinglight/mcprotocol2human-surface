@@ -106,11 +106,19 @@ struct PastedServersTests {
     @Test func takenNamesAreRenamedUnlessReplacing() {
         let existing = [ServerConfig(name: "a"), ServerConfig(name: "b"), ServerConfig(name: "b-2")]
         let outcomes = PastedServers.plan(
-            [entry("a"), entry("b"), entry("c"), entry("c"), entry("a", replace: true), entry("a", replace: true), entry("d", replace: true)],
+            [entry("a", replace: true), entry("b"), entry("c"), entry("c"), entry("a", replace: true), entry("d", replace: true)],
             existing: existing)
-        #expect(outcomes.map(\.name) == ["a-2", "b-3", "c", "c-2", "a", "a-3", "d"])
-        #expect(outcomes.map(\.replaces) == [nil, nil, nil, nil, existing[0].id, nil, nil],
-                "one server is replaced once; replacing a name nobody has adds")
+        #expect(outcomes.map(\.name) == ["a", "b-3", "c", "c-2", "a-2", "d"])
+        #expect(outcomes.map(\.replaces) == [existing[0].id, nil, nil, nil, nil, nil])
+        #expect(outcomes.map(\.canReplace) == [true, true, false, false, false, false],
+                "only the first entry with a taken name may replace; replacing a name nobody has adds")
+    }
+
+    @Test func onlyTheFirstEntryWithANameDecidesAboutReplacing() {
+        let existing = [ServerConfig(name: "a")]
+        let outcomes = PastedServers.plan([entry("a"), entry("a", replace: true)], existing: existing)
+        #expect(outcomes.map(\.name) == ["a-2", "a-3"])
+        #expect(outcomes.allSatisfy { $0.replaces == nil })
     }
 
     @Test @MainActor func storeAddsAfterSelectionAndReplacesInPlace() throws {
@@ -128,5 +136,16 @@ struct PastedServersTests {
         #expect(store.servers.last?.url == "changed")
         store.flush()
         #expect(try ServerFile(data: Data(contentsOf: url)).servers.count == 4)
+    }
+
+    @Test @MainActor func addingTheSameEntriesTwiceKeepsIdsUnique() throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "m2h-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let store = ServerStore(fileURL: url)
+        let entries = [entry("x"), entry("y")]
+        store.add(entries, after: nil)
+        store.add(entries, after: nil)
+        #expect(store.servers.map(\.name) == ["x", "y", "x-2", "y-2"])
+        #expect(Set(store.servers.map(\.id)).count == 4)
     }
 }
