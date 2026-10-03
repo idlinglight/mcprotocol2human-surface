@@ -76,6 +76,26 @@ struct DescriptionFormatTests {
         ])
     }
 
+    @Test func aLeadingListItemKeepsItsContinuation() {
+        #expect(DescriptionFormat.blocks("- Fetches widgets for the given\n  shelf id.") == [
+            .listItem(marker: "-", text: "Fetches widgets for the given shelf id.", level: 0),
+        ])
+        #expect(DescriptionFormat.blocks("1. Call the lister first,\n   then fetch.") == [
+            .listItem(marker: "1.", text: "Call the lister first, then fetch.", level: 0),
+        ])
+    }
+
+    @Test func indentationSharedByAllLinesIsRemoved() {
+        #expect(DescriptionFormat.blocks("    - a\n    - b") == [
+            .listItem(marker: "-", text: "a", level: 0),
+            .listItem(marker: "-", text: "b", level: 0),
+        ])
+        #expect(DescriptionFormat.blocks("   Indented summary.\n\n    Body.") == [
+            .paragraph("Indented summary."),
+            .paragraph("Body."),
+        ])
+    }
+
     @Test func twoTrailingSpacesKeepALineBreak() {
         #expect(DescriptionFormat.blocks("first line  \nsecond line") == [.paragraph("first line\nsecond line")])
     }

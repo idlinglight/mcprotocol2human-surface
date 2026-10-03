@@ -124,14 +124,25 @@ nonisolated enum DescriptionFormat {
             .split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
     }
 
-    /// Removes the indentation all lines after the first share, as Python's `inspect.cleandoc` does, so an
-    /// indented docstring does not look like one long indented block.
+    /// Removes indentation that only reflects where the text came from, so an indented docstring does not
+    /// look like one long indented block.
+    ///
+    /// Usually that is Python's `inspect.cleandoc`: the first line loses its leading spaces, the others the
+    /// indentation they share. When the first line is a list item, though, the lines after it may be its
+    /// indented continuation; then the first line counts too, so only indentation shared by all goes.
     private static func dedented(_ lines: [String]) -> [String] {
-        guard lines.count > 1 else { return lines }
-        let rest = lines.dropFirst().filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-        let common = rest.map { line in line.prefix { $0 == " " }.count }.min() ?? 0
-        guard common > 0 else { return lines }
-        return [lines[0]] + lines.dropFirst().map { $0.count >= common ? String($0.dropFirst(common)) : $0.trimmingCharacters(in: .whitespaces) }
+        guard let first = lines.first else { return lines }
+        func indent(_ line: String) -> Int { line.prefix { $0 == " " }.count }
+        func isBlank(_ line: String) -> Bool { line.trimmingCharacters(in: .whitespaces).isEmpty }
+        func removing(_ count: Int, from line: String) -> String {
+            isBlank(line) ? "" : String(line.dropFirst(min(count, indent(line))))
+        }
+        if listMarker(first.trimmingCharacters(in: .whitespaces)) != nil {
+            let common = lines.filter { !isBlank($0) }.map(indent).min() ?? 0
+            return lines.map { removing(common, from: $0) }
+        }
+        let common = lines.dropFirst().filter { !isBlank($0) }.map(indent).min() ?? 0
+        return [removing(indent(first), from: first)] + lines.dropFirst().map { removing(common, from: $0) }
     }
 
     /// Keeps each line a unit, separated by `\n`, except that a line ending inside a code span is joined

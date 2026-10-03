@@ -128,14 +128,18 @@ struct CopyButton: View {
     var text: String
     var help: String
     @State private var copied = false
+    @State private var resetTask: Task<Void, Never>?
 
     var body: some View {
         Button {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
             copied = true
-            Task {
+            // A second copy restarts the time the check mark stays.
+            resetTask?.cancel()
+            resetTask = Task {
                 try? await Task.sleep(for: .seconds(1.5))
+                guard !Task.isCancelled else { return }
                 copied = false
             }
         } label: {
