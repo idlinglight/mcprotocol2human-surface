@@ -9,7 +9,8 @@ import ScreenCaptureKit
 /// - `M2H_SELECT=<server name>`: select that server at launch, which starts its discovery.
 /// - `M2H_SELECT_PAGE=overview|traffic|<tool name>`: once the run has finished, show that page.
 /// - `M2H_WINDOW_SIZE=<width>x<height>`: resize the main window at launch.
-/// - `M2H_FILTER=[names,][invert:]<text>`: set the tool filter, e.g. `names,invert:list`.
+/// - `M2H_FILTER=<text>`: set the tool filter's text, taken as it is. `M2H_FILTER_NAMES_ONLY=1` and
+///   `M2H_FILTER_INVERT=1` switch its two settings.
 /// - `M2H_SNAPSHOT=/path/to/file.png`: once the selected server's run has finished (or after the delay),
 ///   write an image of the main window there and a text dump next to it (`file.txt`) with the model's
 ///   state and the view hierarchy. `M2H_SNAPSHOT_DELAY=<seconds>` is the longest wait (default 30);
@@ -33,12 +34,11 @@ enum DebugAids {
                 NSApp.windows.first { $0.isVisible }?.setContentSize(NSSize(width: size[0], height: size[1]))
             }
         }
-        if let spec = environment["M2H_FILTER"] {
-            let (options, text) = spec.contains(":")
-                ? (spec.split(separator: ":", maxSplits: 1).first.map(String.init) ?? "", String(spec.split(separator: ":", maxSplits: 1).last ?? ""))
-                : ("", spec)
-            let flags = Set(options.split(separator: ","))
-            model.toolFilter = ToolFilter(text: text, namesOnly: flags.contains("names"), inverted: flags.contains("invert"))
+        if let text = environment["M2H_FILTER"] {
+            model.toolFilter = ToolFilter(
+                text: text,
+                namesOnly: environment["M2H_FILTER_NAMES_ONLY"] == "1",
+                inverted: environment["M2H_FILTER_INVERT"] == "1")
         }
         if let server = environment["M2H_SELECT"] {
             Task {

@@ -42,7 +42,7 @@ struct SurfaceApp: App {
                 Divider()
                 Button("Filter Tools") { model.filterFocusRequests += 1 }
                     .keyboardShortcut("f")
-                    .disabled(model.selectedServer == nil)
+                    .disabled(!model.canFilterTools)
             }
         }
 

@@ -147,7 +147,7 @@ struct ServerColumn: View {
             .scrollDisabled(true)
             .frame(height: Self.pagesHeight)
 
-            if let result = run?.result, !result.tools.isEmpty {
+            if model.canFilterTools {
                 Divider()
                 FilterBar(filter: $model.toolFilter, focused: $filterFocused)
             }

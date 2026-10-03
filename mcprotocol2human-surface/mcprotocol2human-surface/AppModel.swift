@@ -66,6 +66,12 @@ final class AppModel {
 
     func run(for name: String) -> DiscoveryRun? { runs[name] }
 
+    /// Whether the selected server has tools to filter; the filter field is shown only then.
+    var canFilterTools: Bool {
+        guard let selectedServer, let tools = runs[selectedServer]?.result?.tools else { return false }
+        return !tools.isEmpty
+    }
+
     func isRunning(_ name: String) -> Bool { running.contains(name) }
 
     func refreshIfNeeded(_ name: String) {
