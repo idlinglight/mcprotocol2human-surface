@@ -241,47 +241,68 @@ struct ToolRow: View {
     var showsDescription = true
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 6) {
-                Text(tool.displayName)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-                if tool.displayName != tool.name, !tool.name.isEmpty {
-                    Text(tool.name)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(tool.displayName)
+                        .fontWeight(.medium)
                         .lineLimit(1)
+                    if tool.displayName != tool.name, !tool.name.isEmpty {
+                        Text(tool.name)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
-                Spacer(minLength: 0)
-                HintIcons(hints: tool.hints)
+                if showsDescription, let summary = tool.summary {
+                    Text(verbatim: summary)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
             }
-            if showsDescription, let summary = tool.summary {
-                Text(verbatim: summary)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
+            // The whole width up to the icons shows the description, empty space included.
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .help(tool.description.map(DescriptionFormat.plainText) ?? "No description")
+
+            // Outside the area above, so hovering an icon explains the icon instead.
+            HintIcons(hints: tool.hints)
         }
         .padding(.vertical, 2)
-        .help(tool.description.map(DescriptionFormat.plainText) ?? "No description")
     }
 }
 
-/// Small icons for the hints a server set explicitly: read-only, or destructive.
+/// Small icons for the hints a server set explicitly: read-only, or destructive. Each explains itself on
+/// hover.
 struct HintIcons: View {
     var hints: [HintInfo]
 
     var body: some View {
-        let explicit = Dictionary(uniqueKeysWithValues: hints.filter(\.isExplicit).map { ($0.key, $0.value) })
         HStack(spacing: 3) {
-            if explicit["readOnlyHint"] == true {
-                Image(systemName: "eye").help("Read-only")
-            } else if explicit["destructiveHint"] == true {
-                Image(systemName: "exclamationmark.triangle").help("Destructive")
+            if let icon = Self.icon(for: hints) {
+                Image(systemName: icon.symbol)
+                    .help(icon.help)
             }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
+        .contentShape(Rectangle())
+    }
+
+    /// The one icon a row shows, if any: eyeglasses for an explicit read-only hint, otherwise a flame for an
+    /// explicit destructive one. The detail view's hint pills show the same icon on the same hint.
+    static func icon(for hints: [HintInfo]) -> (key: String, symbol: String, help: String)? {
+        let explicit = Dictionary(uniqueKeysWithValues: hints.filter(\.isExplicit).map { ($0.key, $0.value) })
+        if explicit["readOnlyHint"] == true {
+            return ("readOnlyHint", "eyeglasses",
+                    "Read-only: the server says this tool does not modify its environment (readOnlyHint).")
+        }
+        if explicit["destructiveHint"] == true {
+            return ("destructiveHint", "flame",
+                    "Destructive: the server says this tool may make destructive changes (destructiveHint).")
+        }
+        return nil
     }
 }
 
