@@ -62,19 +62,25 @@ nonisolated enum Discovery {
         ["name": "mcprotocol2human-surface", "version": .string(BuildInfo.current.version)]
     }
 
+    /// Runs discovery once. Cancelling the calling task closes the connection, which ends the run.
     @concurrent
     static func run(_ config: ServerConfig, traffic: TrafficLog) async throws -> DiscoveryResult {
         let transport = try makeTransport(for: config, traffic: traffic)
         let connection = MCPConnection(transport: transport, traffic: traffic)
-        do {
-            try await connection.start()
-            let result = try await discover(over: connection, traffic: traffic)
-            await connection.close()
-            return result
-        } catch {
-            traffic.record(.note, "Discovery failed: \(error.localizedDescription)")
-            await connection.close()
-            throw error
+        return try await withTaskCancellationHandler {
+            do {
+                try Task.checkCancellation()
+                try await connection.start()
+                let result = try await discover(over: connection, traffic: traffic)
+                await connection.close()
+                return result
+            } catch {
+                traffic.record(.note, "Discovery failed: \(error.localizedDescription)")
+                await connection.close()
+                throw error
+            }
+        } onCancel: {
+            Task { await connection.cancel() }
         }
     }
 
@@ -111,12 +117,9 @@ nonisolated enum Discovery {
         var probe: RPCOutcome?
         do {
             probe = try await connection.request("server/discover", params: modernParams(), timeout: probeTimeout)
-        } catch ConnectionError.timedOut {
-            observations.append("No answer to server/discover within \(probeTimeout.formatted(.units(allowed: [.seconds]))); treated as a legacy server.")
-        } catch TransportError.httpStatus(let failure) where failure.status == 401 || failure.status == 403 {
-            throw DiscoveryError.unauthorized(status: failure.status, detail: String(failure.body.prefix(300)))
-        } catch TransportError.httpStatus(let failure) where (400..<500).contains(failure.status) {
-            observations.append("server/discover got HTTP \(failure.status) without a modern error; treated as a legacy server.")
+        } catch {
+            if let fatal = probeFailureEndingDiscovery(error) { throw fatal }
+            observations.append("server/discover failed: \(error.localizedDescription) Treated as a legacy server.")
         }
         if case .error(let error)? = probe, let status = error.httpStatus, status == 401 || status == 403 {
             throw DiscoveryError.unauthorized(status: status, detail: error.message)
@@ -137,6 +140,20 @@ nonisolated enum Discovery {
             break
         }
         return try await discoverLegacy(over: connection, observations: observations)
+    }
+
+    /// The probe failures that say nothing about the era: the server cannot be reached, has gone away, or
+    /// wants authorisation. Anything else means legacy (ADR-0005).
+    static func probeFailureEndingDiscovery(_ error: any Error) -> (any Error)? {
+        switch error {
+        case TransportError.httpStatus(let failure) where failure.status == 401 || failure.status == 403:
+            DiscoveryError.unauthorized(status: failure.status, detail: String(failure.body.prefix(300)))
+        case TransportError.connectionFailed, TransportError.executableNotFound, TransportError.launchFailed,
+             TransportError.writeFailed, ConnectionError.closed, is CancellationError:
+            error
+        default:
+            nil
+        }
     }
 
     private static func discoverModern(_ result: JSONValue, over connection: MCPConnection, observations: [String]) async throws -> DiscoveryResult {
@@ -165,7 +182,7 @@ nonisolated enum Discovery {
             handshake: result,
             toolsAdvertised: toolsAdvertised,
             tools: tools,
-            observations: observations)
+            observations: unique(observations))
     }
 
     private static func discoverLegacy(over connection: MCPConnection, observations: [String]) async throws -> DiscoveryResult {
@@ -205,7 +222,13 @@ nonisolated enum Discovery {
             handshake: result,
             toolsAdvertised: toolsAdvertised,
             tools: tools,
-            observations: observations)
+            observations: unique(observations))
+    }
+
+    /// The same remark can come up once per page; it is worth reading once.
+    private static func unique(_ observations: [String]) -> [String] {
+        var seen: Set<String> = []
+        return observations.filter { seen.insert($0).inserted }
     }
 
     private static func listTools(over connection: MCPConnection, era: ProtocolEra, observations: inout [String]) async throws -> [ToolInfo] {
@@ -249,10 +272,11 @@ nonisolated enum Discovery {
             cursor = nextCursor
         }
         if pages > 1 { observations.append("Tools came in \(pages) pages.") }
-        let names = tools.map(\.name)
-        let duplicates = Set(names.filter { name in names.filter { $0 == name }.count > 1 })
+        var counts: [String: Int] = [:]
+        for tool in tools { counts[tool.name, default: 0] += 1 }
+        let duplicates = counts.filter { $0.value > 1 }.keys.sorted()
         if !duplicates.isEmpty {
-            observations.append("Tool names used more than once: \(duplicates.sorted().joined(separator: ", ")).")
+            observations.append("Tool names used more than once: \(duplicates.joined(separator: ", ")).")
         }
         return tools
     }
@@ -260,9 +284,7 @@ nonisolated enum Discovery {
     private static func checkResultType(_ result: JSONValue, method: String, into observations: inout [String]) {
         switch result["resultType"]?.stringValue {
         case nil:
-            if !observations.contains(where: { $0.hasPrefix("The result of \(method) has no resultType") }) {
-                observations.append("The result of \(method) has no resultType, which modern servers must send; taken as complete.")
-            }
+            observations.append("The result of \(method) has no resultType, which modern servers must send; taken as complete.")
         case "complete":
             break
         case let other?:

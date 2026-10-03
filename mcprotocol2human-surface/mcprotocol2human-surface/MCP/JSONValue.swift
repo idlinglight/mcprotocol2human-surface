@@ -359,12 +359,15 @@ private nonisolated struct JSONParser {
             if (0xD800...0xDBFF).contains(first) {
                 // A high surrogate must be followed by an escaped low surrogate.
                 if position + 1 < bytes.count, bytes[position] == UInt8(ascii: "\\"), bytes[position + 1] == UInt8(ascii: "u") {
+                    let next = position
                     position += 2
                     let second = try parseHex4()
                     if (0xDC00...0xDFFF).contains(second) {
                         let combined = 0x10000 + ((first - 0xD800) << 10) + (second - 0xDC00)
                         return Unicode.Scalar(combined) ?? "\u{FFFD}"
                     }
+                    // Not a low surrogate: the lone high one is replaced, the next escape read on its own.
+                    position = next
                 }
                 return "\u{FFFD}"
             }

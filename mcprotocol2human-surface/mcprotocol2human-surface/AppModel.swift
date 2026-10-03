@@ -47,7 +47,9 @@ final class AppModel {
     private(set) var runs: [String: DiscoveryRun] = [:]
     private(set) var running: Set<String> = []
 
-    @ObservationIgnored private var tasks: [String: Task<Void, Never>] = [:]
+    /// The run in progress per server name. Its token tells a current run from one that was replaced or
+    /// whose server went away; only the current one may store its result.
+    @ObservationIgnored private var inFlight: [String: (token: UUID, task: Task<Void, Never>)] = [:]
 
     init(store: ServerStore) {
         self.store = store
@@ -66,25 +68,33 @@ final class AppModel {
         refresh(name)
     }
 
-    /// Runs discovery for one server. A run already going for it is left to finish; its result is replaced.
+    /// Runs discovery for one server with its current settings. A run already going for it is cancelled and
+    /// leaves no result.
     func refresh(_ name: String) {
-        guard let config = store.server(named: name), !running.contains(name) else { return }
+        guard let config = store.server(named: name) else { return }
+        inFlight[name]?.task.cancel()
         running.insert(name)
+        let token = UUID()
         let traffic = TrafficLog()
         let started = Date.now
         Log.discovery.info("Discovery for \(name, privacy: .public) started")
-        tasks[name] = Task {
+        let task = Task {
             let outcome: Result<DiscoveryResult, DiscoveryFailure>
             do {
                 outcome = .success(try await Discovery.run(config, traffic: traffic))
             } catch {
                 outcome = .failure(DiscoveryFailure(message: error.localizedDescription))
             }
+            guard inFlight[name]?.token == token else {
+                Log.discovery.info("Discovery for \(name, privacy: .public) superseded")
+                return
+            }
             runs[name] = DiscoveryRun(config: config, started: started, finished: .now, outcome: outcome, traffic: traffic.entries)
             running.remove(name)
-            tasks[name] = nil
+            inFlight[name] = nil
             Log.discovery.info("Discovery for \(name, privacy: .public) finished")
         }
+        inFlight[name] = (token, task)
     }
 
     func refreshSelected() {
@@ -95,9 +105,15 @@ final class AppModel {
         for server in store.servers { refresh(server.name) }
     }
 
-    /// Drops runs of servers that are no longer in the list, and the selection if its server is gone.
+    /// Drops runs of servers that are no longer in the list, cancels their runs in progress, and clears the
+    /// selection if its server is gone.
     func pruneToStore() {
         let names = Set(store.servers.map(\.name))
+        for (name, run) in inFlight where !names.contains(name) {
+            run.task.cancel()
+            inFlight[name] = nil
+            running.remove(name)
+        }
         runs = runs.filter { names.contains($0.key) }
         if let selectedServer, !names.contains(selectedServer) { self.selectedServer = nil }
     }

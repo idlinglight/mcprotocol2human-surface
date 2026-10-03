@@ -33,8 +33,8 @@ struct MainWindow: View {
                 Button("Refresh", systemImage: "arrow.clockwise") {
                     model.refreshSelected()
                 }
-                .help("Connect again and list the tools (⌘R)")
-                .disabled(model.selectedServer == nil || model.selectedServer.map(model.isRunning) == true)
+                .help("Connect again and list the tools (⌘R); restarts a run in progress")
+                .disabled(model.selectedServer == nil)
             }
         }
         .onChange(of: model.store.servers.map(\.name)) {

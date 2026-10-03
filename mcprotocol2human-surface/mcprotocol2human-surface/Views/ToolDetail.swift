@@ -57,7 +57,7 @@ struct ToolDetail: View {
                 if !tool.notes.isEmpty {
                     DetailSection("Notes") {
                         VStack(alignment: .leading, spacing: 4) {
-                            ForEach(tool.notes, id: \.self) { note in
+                            ForEach(Array(tool.notes.enumerated()), id: \.offset) { _, note in
                                 Label(note, systemImage: "info.circle")
                                     .textSelection(.enabled)
                             }
@@ -132,7 +132,8 @@ struct ParameterList: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(parameters.enumerated()), id: \.element.id) { index, parameter in
+            // By position: a schema may name a property twice, and both should show.
+            ForEach(Array(parameters.enumerated()), id: \.offset) { index, parameter in
                 if index > 0 { Divider() }
                 ParameterRow(parameter: parameter)
                     .padding(.vertical, 8)

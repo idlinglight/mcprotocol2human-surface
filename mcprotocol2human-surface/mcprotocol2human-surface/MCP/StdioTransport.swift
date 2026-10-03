@@ -74,16 +74,28 @@ nonisolated final class StdioTransport: MCPTransport, @unchecked Sendable {
         }
     }
 
-    func send(_ message: OutgoingMessage) async throws -> [JSONValue] {
+    func send(_ message: OutgoingMessage, receive: @escaping @Sendable (JSONValue) async -> Bool) async throws {
         guard let input = lock.withLock({ self.input }) else {
             throw TransportError.writeFailed("the server is not running")
         }
         do {
             try input.write(contentsOf: message.payload.compactData + Data([0x0A]))
         } catch {
+            // A closed pipe almost always means the server has exited; say that rather than "couldn't be saved".
+            if let exit = await exitDescriptionSoon() {
+                throw ConnectionError.closed("The server \(exit).")
+            }
             throw TransportError.writeFailed(error.localizedDescription)
         }
-        return []
+    }
+
+    /// How the server exited, waiting up to a second for its termination to be reported.
+    private func exitDescriptionSoon() async -> String? {
+        for _ in 0..<20 {
+            if let description = lock.withLock({ exitDescription }) { return description }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return nil
     }
 
     func setProtocolHeaders(version: String?, namesMethod: Bool) async {}

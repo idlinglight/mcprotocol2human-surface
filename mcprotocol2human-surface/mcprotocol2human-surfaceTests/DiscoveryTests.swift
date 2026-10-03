@@ -4,9 +4,13 @@ import Testing
 
 /// An HTTP-like transport whose replies come from a closure, recording what was sent and with which headers.
 final class FakeTransport: MCPTransport, @unchecked Sendable {
-    enum Reply {
+    enum Reply: @unchecked Sendable {
+        /// Delivered one by one until the connection says the reply is in.
         case messages([JSONValue])
         case status(Int, JSONValue?)
+        case failure(any Error)
+        /// Full control: deliver messages and look at what the client sent in between.
+        case script(@Sendable (FakeTransport, @Sendable (JSONValue) async -> Bool) async throws -> Void)
     }
 
     let events: AsyncStream<TransportEvent>
@@ -28,14 +32,20 @@ final class FakeTransport: MCPTransport, @unchecked Sendable {
 
     func start() async throws {}
 
-    func send(_ message: OutgoingMessage) async throws -> [JSONValue] {
+    func send(_ message: OutgoingMessage, receive: @escaping @Sendable (JSONValue) async -> Bool) async throws {
         lock.withLock { log.append((message.payload, version, namesMethod)) }
-        guard message.expectsReply else { return [] }
+        guard message.expectsReply else { return }
         switch reply(message.payload) {
         case .messages(let messages):
-            return messages
+            for message in messages where await receive(message) {
+                return
+            }
         case .status(let status, let body):
             throw TransportError.httpStatus(HTTPStatusFailure(status: status, body: body?.compactText ?? "", json: body))
+        case .failure(let error):
+            throw error
+        case .script(let script):
+            try await script(self, receive)
         }
     }
 
@@ -200,20 +210,82 @@ struct DiscoveryTests {
         #expect(found.observations.contains { $0.contains("repeated cursor") })
     }
 
-    @Test func pingFromTheServerIsAnswered() async throws {
+    @Test func pingIsAnsweredWhileTheServerWaitsForIt() async throws {
         let transport = FakeTransport { request in
             switch request["method"]?.stringValue {
             case "server/discover": .messages([error(for: request, code: -32601)])
-            case "initialize": .messages([
-                ["jsonrpc": "2.0", "id": "s1", "method": "ping"],
-                result(for: request, legacyInitializeResult),
-            ])
+            case "initialize": .script { transport, receive in
+                _ = await receive(["jsonrpc": "2.0", "id": "s1", "method": "ping"])
+                // Like a server that holds its reply until the ping is answered.
+                guard transport.sent.contains(where: { $0.payload["id"] == "s1" }) else {
+                    throw TransportError.unreadableReply("ping not answered before the reply was due")
+                }
+                _ = await receive(result(for: request, legacyInitializeResult))
+            }
             default: .messages([result(for: request, ["tools": []])])
             }
         }
         _ = try await discover(transport)
         let pong = transport.sent.first { $0.payload["id"] == "s1" }
         #expect(pong?.payload["result"] == [:])
+    }
+
+    @Test func replyIdWrittenAsDecimalStillMatches() async throws {
+        let transport = FakeTransport { request in
+            var reply: JSONValue = switch request["method"]?.stringValue {
+            case "server/discover": error(for: request, code: -32601)
+            case "initialize": result(for: request, legacyInitializeResult)
+            default: result(for: request, ["tools": [["name": "t"]]])
+            }
+            reply = reply.setting("id", to: .number("\(request["id"]?.intValue ?? 0).0"))
+            // Followed by something else, as on a stream the server keeps open.
+            return .messages([reply, ["jsonrpc": "2.0", "method": "notifications/message"]])
+        }
+        #expect(try await discover(transport).tools.map(\.name) == ["t"])
+    }
+
+    @Test(arguments: [
+        FakeTransport.Reply.failure(TransportError.unexpectedContentType("text/plain")),
+        .failure(TransportError.unreadableReply("garbage")),
+        .status(500, nil),
+        .messages([]),
+    ])
+    func oddProbeAnswersFallBackToLegacy(_ probeReply: FakeTransport.Reply) async throws {
+        let transport = FakeTransport { request in
+            switch request["method"]?.stringValue {
+            case "server/discover": probeReply
+            case "initialize": .messages([result(for: request, legacyInitializeResult)])
+            default: .messages([result(for: request, ["tools": []])])
+            }
+        }
+        let found = try await discover(transport)
+        #expect(found.era == .legacy)
+        #expect(found.observations.first?.hasPrefix("server/discover failed:") == true)
+    }
+
+    @Test func unreachableServerEndsDiscovery() async throws {
+        let transport = FakeTransport { _ in .failure(TransportError.connectionFailed("refused")) }
+        await #expect(throws: TransportError.self) { try await discover(transport) }
+        #expect(transport.sentMethods == ["server/discover"])
+    }
+
+    @Test func repeatedRemarksAndDuplicateNamesAreReportedOnce() async throws {
+        let transport = FakeTransport { request in
+            switch request["method"]?.stringValue {
+            case "server/discover":
+                return .messages([result(for: request, ["supportedVersions": ["2026-07-28"], "capabilities": ["tools": [:]]])])
+            default:
+                let page = request["params"]?["cursor"]?.stringValue ?? "0"
+                let next: JSONValue = page == "0" ? "1" : (page == "1" ? "2" : .null)
+                var reply = result(for: request, ["tools": [["name": "same"]]])
+                if next != .null { reply = reply.setting("result", to: reply["result"]!.setting("nextCursor", to: next)) }
+                return .messages([reply])
+            }
+        }
+        let found = try await discover(transport)
+        #expect(found.tools.count == 3)
+        #expect(found.observations.filter { $0.hasPrefix("The result of tools/list has no resultType") }.count == 1)
+        #expect(found.observations.contains("Tool names used more than once: same."))
     }
 }
 

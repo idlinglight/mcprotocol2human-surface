@@ -40,7 +40,7 @@ struct ServerOverview: View {
                     }
                     DetailSection("How the client got here") {
                         VStack(alignment: .leading, spacing: 4) {
-                            ForEach(result.observations, id: \.self) { line in
+                            ForEach(Array(result.observations.enumerated()), id: \.offset) { _, line in
                                 Label(line, systemImage: "info.circle")
                                     .textSelection(.enabled)
                             }

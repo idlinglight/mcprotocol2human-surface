@@ -64,8 +64,9 @@ nonisolated struct ToolInfo: Identifiable, Sendable, Hashable {
     var requiredParameterCount: Int { parameters.count(where: \.isRequired) }
 }
 
-/// One property of an object schema.
-nonisolated struct ParameterInfo: Identifiable, Sendable, Hashable {
+/// One property of an object schema. Names can repeat (JSON objects may have duplicate keys), so lists of
+/// these are identified by position.
+nonisolated struct ParameterInfo: Sendable, Hashable {
     var name: String
     var typeLabel: String
     var description: String?
@@ -77,8 +78,6 @@ nonisolated struct ParameterInfo: Identifiable, Sendable, Hashable {
     /// Properties of an object (or of an array's object items), for drilling down.
     var children: [ParameterInfo]
     var schema: JSONValue
-
-    var id: String { name }
 }
 
 /// Reads JSON Schema enough to describe parameters. Follows local `$ref`s (`#/$defs/…`, `#/definitions/…`)
