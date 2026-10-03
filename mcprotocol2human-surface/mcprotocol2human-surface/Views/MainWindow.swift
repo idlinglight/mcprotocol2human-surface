@@ -256,14 +256,14 @@ struct ToolRow: View {
                 HintIcons(hints: tool.hints)
             }
             if showsDescription, let summary = tool.summary {
-                Text(summary)
+                Text(DescriptionText.inline(summary))
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
         }
         .padding(.vertical, 2)
-        .help(tool.description ?? "No description")
+        .help(tool.description.map(DescriptionFormat.plainText) ?? "No description")
     }
 }
 

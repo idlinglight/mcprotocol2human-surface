@@ -22,11 +22,16 @@ struct ToolDetail: View {
                         .padding(.top, 4)
                 }
 
-                DetailSection("Description") {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 6) {
+                        Text("Description")
+                            .font(.headline)
+                        if let description = tool.description, !description.isEmpty {
+                            CopyRawButton(text: description, help: "Copy the description exactly as the server sent it")
+                        }
+                    }
                     if let description = tool.description, !description.isEmpty {
-                        Text(description)
-                            .textSelection(.enabled)
-                            .fixedSize(horizontal: false, vertical: true)
+                        DescriptionText(text: description)
                     } else {
                         Text("No description.").foregroundStyle(.secondary)
                     }
@@ -168,9 +173,7 @@ struct ParameterRow: View {
                     .textSelection(.enabled)
             }
             if let description = parameter.description, !description.isEmpty {
-                Text(description)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
+                DescriptionText(text: description)
             }
             facts
             if !parameter.children.isEmpty {

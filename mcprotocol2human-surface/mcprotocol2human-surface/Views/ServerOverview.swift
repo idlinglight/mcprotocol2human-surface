@@ -31,9 +31,7 @@ struct ServerOverview: View {
                 if let result = run?.result {
                     DetailSection("Instructions") {
                         if let instructions = result.instructions, !instructions.isEmpty {
-                            Text(instructions)
-                                .textSelection(.enabled)
-                                .fixedSize(horizontal: false, vertical: true)
+                            DescriptionText(text: instructions)
                         } else {
                             Text("None.").foregroundStyle(.secondary)
                         }

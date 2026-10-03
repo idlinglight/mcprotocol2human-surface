@@ -17,6 +17,9 @@ Personal tool, built locally, not distributed.
 - The eye button next to the tools heading switches the rows between name plus first description line
   (eye) and names only (crossed-out eye), for an overview with less noise. It is remembered between
   launches; the full description shows on hover either way.
+- Descriptions (of tools and parameters, and server instructions) are rendered for reading: hard-wrapped
+  lines joined into paragraphs, lists kept as lists, `code` in monospace. A copy button next to a tool's
+  description copies it exactly as the server sent it; the raw JSON shows it too.
 - For each tool: name and title, the four behaviour hints (set by the server, or the specification's
   default), the full description, parameters with type, required flag, default, allowed values and
   constraints (nested objects can be opened), the output schema, and the raw JSON.

@@ -7,7 +7,8 @@ import ScreenCaptureKit
 /// session where nobody looks at the screen. All of them are switched on by environment variables:
 ///
 /// - `M2H_SELECT=<server name>`: select that server at launch, which starts its discovery.
-/// - `M2H_SELECT_PAGE=overview|traffic|<tool name>`: once the run has finished, show that page.
+/// - `M2H_SELECT_PAGE=overview|traffic|<tool name>|#<n>`: once the run has finished, show that page
+///   (`#<n>` is the nth tool, from 1).
 /// - `M2H_WINDOW_SIZE=<width>x<height>`: resize the main window at launch.
 /// - `M2H_DEFAULTS_SUITE=<name>`: keep preferences in a scratch store instead of the installed app's;
 ///   `M2H_DEFAULTS='{"key": value}'` seeds it. See `Preferences`.
@@ -70,7 +71,10 @@ enum DebugAids {
         case "overview": model.selectedPage = .overview
         case "traffic": model.selectedPage = .traffic
         default:
-            if let tool = model.run(for: server)?.result?.tools.first(where: { $0.name == page }) {
+            let tools = model.run(for: server)?.result?.tools ?? []
+            if page.hasPrefix("#"), let number = Int(page.dropFirst()), tools.indices.contains(number - 1) {
+                model.selectedPage = .tool(tools[number - 1].position)
+            } else if let tool = tools.first(where: { $0.name == page }) {
                 model.selectedPage = .tool(tool.position)
             }
         }
