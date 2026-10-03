@@ -1,6 +1,6 @@
 # ADR-0008: Displaying agent-facing text
 
-Status: proposed, 2026-10-03
+Status: accepted, 2026-10-03
 
 ## Context
 

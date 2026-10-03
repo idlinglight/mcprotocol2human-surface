@@ -86,7 +86,7 @@ Recorded as ADRs in [docs/adr](docs/adr):
 - [0005](docs/adr/0005-protocol-revisions.md) Protocol revisions: modern and legacy, probed per run
 - [0006](docs/adr/0006-sandbox-and-search-path.md) App Sandbox off; executables from a fixed search path
 - [0007](docs/adr/0007-server-configuration.md) Server list as an `mcpServers` JSON file, edited in Settings
-- [0008](docs/adr/0008-displaying-agent-facing-text.md) Displaying agent-facing text (proposed)
+- [0008](docs/adr/0008-displaying-agent-facing-text.md) Displaying agent-facing text
 
 ## Ideas for later
 
