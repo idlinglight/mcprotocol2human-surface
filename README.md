@@ -11,6 +11,8 @@ Personal tool, built locally, not distributed.
 - Keeps a list of servers, stdio or Streamable HTTP, edited in Settings (⌘,).
 - Selecting a server connects to it, finds out which protocol revision it speaks, lists its tools and
   disconnects again. Refresh (⌘R) does it again; Refresh All (⇧⌘R) does it for every server.
+- A filter above the tool list (⌘F, Escape clears it) matches names, titles and descriptions. Two
+  toggles narrow it to names and titles only (Aa), or show the tools that do *not* match (≠).
 - For each tool: name and title, the four behaviour hints (set by the server, or the specification's
   default), the full description, parameters with type, required flag, default, allowed values and
   constraints (nested objects can be opened), the output schema, and the raw JSON.

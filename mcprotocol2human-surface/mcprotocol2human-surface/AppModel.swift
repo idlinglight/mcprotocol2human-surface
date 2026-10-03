@@ -43,6 +43,10 @@ final class AppModel {
         }
     }
     var selectedPage: ServerPage?
+    /// Applies to whichever server is selected, so it stays put while switching between them.
+    var toolFilter = ToolFilter()
+    /// Bumped by ⌘F; the tool list moves focus to its filter field when it changes.
+    var filterFocusRequests = 0
     /// The latest finished run per server name.
     private(set) var runs: [String: DiscoveryRun] = [:]
     private(set) var running: Set<String> = []

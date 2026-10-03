@@ -39,6 +39,10 @@ struct SurfaceApp: App {
                     .disabled(model.selectedServer == nil)
                 Button("Refresh All") { model.refreshAll() }
                     .keyboardShortcut("r", modifiers: [.command, .shift])
+                Divider()
+                Button("Filter Tools") { model.filterFocusRequests += 1 }
+                    .keyboardShortcut("f")
+                    .disabled(model.selectedServer == nil)
             }
         }
 

@@ -128,10 +128,12 @@ struct ServerRow: View {
 struct ServerColumn: View {
     @Bindable var model: AppModel
     var name: String
-    @State private var search = ""
+    @FocusState private var filterFocused: Bool
 
     var body: some View {
         let run = model.run(for: name)
+        let filter = model.toolFilter
+        let shown = run?.result.map { filter.apply($0.tools) } ?? []
         List(selection: $model.selectedPage) {
             Section {
                 Label("Overview", systemImage: "info.circle")
@@ -149,20 +151,35 @@ struct ServerColumn: View {
                 }
             }
             if let result = run?.result {
-                Section(toolsHeader(result)) {
+                Section(filter.header(shown: shown.count, total: result.tools.count)) {
                     if !result.toolsAdvertised {
                         Text("The server does not advertise the tools capability.")
                             .foregroundStyle(.secondary)
                             .selectionDisabled()
+                    } else if shown.isEmpty, filter.isActive {
+                        Text(filter.inverted ? "Every tool matches." : "No tool matches.")
+                            .foregroundStyle(.secondary)
+                            .selectionDisabled()
                     }
-                    ForEach(filtered(result.tools)) { tool in
+                    ForEach(shown) { tool in
                         ToolRow(tool: tool)
                             .tag(ServerPage.tool(tool.position))
                     }
                 }
             }
         }
-        .searchable(text: $search, placement: .toolbar, prompt: "Filter tools")
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if let result = run?.result, !result.tools.isEmpty {
+                VStack(spacing: 0) {
+                    FilterBar(filter: $model.toolFilter, focused: $filterFocused)
+                    Divider()
+                }
+                .background(.bar)
+            }
+        }
+        .onChange(of: model.filterFocusRequests) {
+            filterFocused = true
+        }
         .overlay {
             if run == nil, model.isRunning(name) {
                 ProgressView("Connecting…")
@@ -177,21 +194,6 @@ struct ServerColumn: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(.bar)
             }
-        }
-    }
-
-    private func toolsHeader(_ result: DiscoveryResult) -> String {
-        let shown = filtered(result.tools).count
-        return shown == result.tools.count ? "Tools (\(shown))" : "Tools (\(shown) of \(result.tools.count))"
-    }
-
-    private func filtered(_ tools: [ToolInfo]) -> [ToolInfo] {
-        let query = search.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return tools }
-        return tools.filter {
-            $0.name.localizedCaseInsensitiveContains(query)
-                || $0.displayName.localizedCaseInsensitiveContains(query)
-                || ($0.description?.localizedCaseInsensitiveContains(query) ?? false)
         }
     }
 
