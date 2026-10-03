@@ -126,8 +126,10 @@ nonisolated enum Discovery {
         }
 
         switch probe {
-        case .result(let result)?:
+        case .result(let result)? where isDiscoverResult(result):
             return try await discoverModern(result, over: connection, observations: observations)
+        case .result(let result)?:
+            observations.append(notDiscoverResultRemark(result))
         case .error(let error)? where error.code.map(modernErrorCodes.contains) == true:
             if error.code == -32022 {
                 let supported = error.data?["supported"]?.arrayValue?.compactMap(\.stringValue) ?? []
@@ -156,6 +158,24 @@ nonisolated enum Discovery {
         }
     }
 
+    /// Whether a result to the probe is a `DiscoverResult`: it has at least one of the two members that type
+    /// requires. A result with neither answers something else, so it says nothing about the era (ADR-0005).
+    static func isDiscoverResult(_ result: JSONValue) -> Bool {
+        result["supportedVersions"]?.arrayValue != nil || result["capabilities"]?.members != nil
+    }
+
+    private static func notDiscoverResultRemark(_ result: JSONValue) -> String {
+        var remark = "server/discover answered with a result that is not a DiscoverResult (it has neither supportedVersions nor capabilities); treated as a legacy server."
+        // Some servers answer unknown methods as if a tool call had failed, instead of with a JSON-RPC error.
+        if result["isError"]?.boolValue == true {
+            let text = result["content"]?.arrayValue?.compactMap { $0["text"]?.stringValue }.joined(separator: " ") ?? ""
+            remark += " The result is shaped like a failed tool call (isError)"
+            remark += text.isEmpty ? "." : ", saying “\(text.prefix(300))”."
+            remark += " An unknown method should get a JSON-RPC error, such as -32601."
+        }
+        return remark
+    }
+
     private static func discoverModern(_ result: JSONValue, over connection: MCPConnection, observations: [String]) async throws -> DiscoveryResult {
         var observations = observations
         observations.append("Answered server/discover: a modern server.")
@@ -169,6 +189,9 @@ nonisolated enum Discovery {
         }
         checkResultType(result, method: "server/discover", into: &observations)
         let capabilities = result["capabilities"]
+        if capabilities?.members == nil {
+            observations.append("The result has no capabilities object, which is required.")
+        }
         let toolsAdvertised = capabilities?["tools"] != nil
         let tools = toolsAdvertised
             ? try await listTools(over: connection, era: .modern, observations: &observations)
