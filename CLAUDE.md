@@ -10,7 +10,7 @@
   in step.
 - No third-party dependencies (ADR-0001). The MCP client is our own code (ADR-0002); the specification
   lives in the GitHub repository `modelcontextprotocol/modelcontextprotocol`.
-- The repository may become public. Keep personal context, real server output and secrets out of it:
+- The repository is public. Keep personal context, real server output and secrets out of it:
   examples and test fixtures use made-up servers and tools.
 - Debug builds read `M2H_*` environment variables to drive the app from a shell and write a snapshot
   (PNG plus a text dump of model state and views); see `Support/DebugAids.swift`. Point them at a scratch

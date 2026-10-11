@@ -101,3 +101,9 @@ Recorded as ADRs in [docs/adr](docs/adr):
 - Prompts and resources, listed like tools.
 - Keyboard navigation across the server pages (Overview, Traffic) and the tool list, which are separate
   lists for now.
+
+## License
+
+[0BSD](LICENSE): use it however you like, no attribution required. Much of this code was written together
+with an AI coding agent (see the commit trailers); a license without conditions means nobody has to work
+out where human authorship begins and ends.
