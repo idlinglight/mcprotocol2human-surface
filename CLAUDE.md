@@ -22,3 +22,6 @@
 - xcodebuild's console output leaves out Swift Testing failure messages. Run tests with
   `-resultBundlePath build/tests.xcresult` and read them with
   `xcrun xcresulttool get test-results tests --path build/tests.xcresult`.
+- Every pull request runs `.github/workflows/ci.yml` (job `build-and-test`, a required check on `main`).
+  Actions are pinned by full commit SHA with a version comment; the repository only allows actions from
+  GitHub's own organizations.
