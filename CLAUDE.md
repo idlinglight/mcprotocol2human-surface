@@ -19,6 +19,9 @@
   from a debug run: pass a preference as a launch argument (`-showsToolDescriptions NO`, overrides for
   that launch, never written), or use a scratch store (`M2H_DEFAULTS_SUITE=<name>`, see `Preferences`).
   App code reads preferences through `Preferences.store` so the scratch store takes effect.
+- The README picture, `docs/img/teaser.png`, comes from `Scripts/teaser/make-teaser.sh` and its made-up demo
+  servers. After a UI change that shows in it, run the script and look at the result: the crops are fixed
+  rectangles in points and may need moving.
 - xcodebuild's console output leaves out Swift Testing failure messages. Run tests with
   `-resultBundlePath build/tests.xcresult` and read them with
   `xcrun xcresulttool get test-results tests --path build/tests.xcresult`.

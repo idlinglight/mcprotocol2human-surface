@@ -4,6 +4,8 @@ A macOS app for looking at the surface of [Model Context Protocol](https://model
 which tools a server exposes, and what each tool says about itself. Meant for people who build MCP servers
 and want to see their tools the way a client does, without asking an agent or installing an inspector.
 
+![Three views of the app: the server list and a server's tools with their hint icons; a tool's details with its behaviour hints, four description displays and its parameters; a legacy server's traffic, where the server/discover probe is rejected and the client falls back to initialize](docs/img/teaser.png)
+
 Personal tool, built locally, not distributed.
 
 ## What it does
@@ -78,7 +80,9 @@ xcodebuild -project mcprotocol2human-surface/mcprotocol2human-surface.xcodeproj 
 also replaces `~/Applications/mcprotocol2human-surface.app` with it and launches it.
 
 Debug builds can be driven from a shell (select a server, show a page, write a snapshot of the window and
-quit) through `M2H_*` environment variables; see `Support/DebugAids.swift`.
+quit) through `M2H_*` environment variables; see `Support/DebugAids.swift`. That is how
+`Scripts/teaser/make-teaser.sh` makes the picture at the top, from made-up demo servers
+([demo_server.py](Scripts/teaser/demo_server.py)).
 
 Pull requests are built and tested by GitHub Actions ([ci.yml](.github/workflows/ci.yml)) on the hosted
 `xcode-27` runner, signed ad hoc since CI has no certificates.
