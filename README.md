@@ -80,6 +80,9 @@ also replaces `~/Applications/mcprotocol2human-surface.app` with it and launches
 Debug builds can be driven from a shell (select a server, show a page, write a snapshot of the window and
 quit) through `M2H_*` environment variables; see `Support/DebugAids.swift`.
 
+Pull requests are built and tested by GitHub Actions ([ci.yml](.github/workflows/ci.yml)) on the hosted
+`xcode-27` runner, signed ad hoc since CI has no certificates.
+
 ## Design decisions
 
 Recorded as ADRs in [docs/adr](docs/adr):
